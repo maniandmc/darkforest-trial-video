@@ -40,7 +40,8 @@ export class Combat {
     if (!best) return;
     atk.hit = true;
     const d = atk.d;
-    const dealt = boss.takeDamage(d.dmg, d.poise, best.part, this.game);
+    const step = (v) => Array.isArray(v) ? v[atk.step] : v;
+    const dealt = boss.takeDamage(step(d.dmg), step(d.poise), best.part, this.game);
     this.game.onPlayerHit({ part: best.part, at: best.at, dmg: dealt, heavy: atk.kind === 'heavy' });
   }
 

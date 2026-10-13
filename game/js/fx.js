@@ -125,15 +125,15 @@ export class FX {
     }
     this.flashLight(at, opts.color || 0xff9a4a, opts.light || 40, 0.16);
   }
-  dust(at, radius, n = 40) {
-    n = Math.round(n * this.quality.particles);
+  dust(at, radius, n = 40, sc = 1) {
+    n = Math.max(1, Math.round(n * this.quality.particles));
     for (let i = 0; i < n; i++) {
       const a = rand() * Math.PI * 2, r = rand() * radius * 0.4;
-      const sp = randRange(2, 7);
+      const sp = randRange(2, 7) * Math.sqrt(sc);
       this.parts.spawn({ x: at.x + Math.sin(a) * r, y: 0.2, z: at.z + Math.cos(a) * r, vx: Math.sin(a) * sp, vy: randRange(0.5, 3), vz: Math.cos(a) * sp,
-        life: randRange(0.6, 1.4), age: 0, size: randRange(0.5, 1.2), r: 0.22, g: 0.13, b: 0.08, grav: 1.5, drag: 2.2, fade: 2, grow: 1.5 });
+        life: randRange(0.6, 1.4) * Math.sqrt(sc), age: 0, size: randRange(0.5, 1.2) * sc, r: 0.22, g: 0.13, b: 0.08, grav: 1.5, drag: 2.2, fade: 2, grow: 1.5 });
     }
-    for (let i = 0; i < n * 0.6; i++) {
+    for (let i = 0; i < n * 0.6 * sc; i++) {
       const a = rand() * Math.PI * 2, sp = randRange(3, 12);
       this.parts.spawn({ x: at.x, y: 0.3, z: at.z, vx: Math.sin(a) * sp * 0.6, vy: randRange(3, 9), vz: Math.cos(a) * sp * 0.6,
         life: randRange(0.5, 1.1), age: 0, size: randRange(0.06, 0.14), r: 3.0, g: 1.3, b: 0.4, grav: 12, drag: 1.2, fade: 1, cool: 0.6, bounce: true });
@@ -205,7 +205,9 @@ export class FX {
 }
 
 // ribbon following the blade during a swing
-const TRAIL_N = 14;
+const TRAIL_N = 64, TRAIL_SUB = 4, TRAIL_AGE = 0.12, TRAIL_IN = 0.42;
+// Sword smear: a band along the outer part of the blade, sampled each frame, ageing out fast; Catmull-Rom subdivided
+// so fast arcs stay round.
 class BladeTrail {
   constructor(scene) {
     const g = new THREE.BufferGeometry();
@@ -217,28 +219,52 @@ class BladeTrail {
     g.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
     this.mat = new THREE.ShaderMaterial({
       vertexShader: `attribute float alpha; varying float vA; varying float vS; void main(){ vA = alpha; vS = float(gl_VertexID % 2); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-      fragmentShader: `uniform vec3 uC; varying float vA; varying float vS; void main(){ float e = mix(0.25, 1.0, vS); gl_FragColor = vec4(uC * vA * e, 1.0); }`,
-      uniforms: { uC: { value: new THREE.Color(1.6, 0.9, 0.5) } }, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      fragmentShader: `uniform vec3 uC; varying float vA; varying float vS; void main(){ float e = vS * vS * (0.35 + 0.65 * vS); gl_FragColor = vec4(uC * vA * e, 1.0); }`,
+      uniforms: { uC: { value: new THREE.Color(1.5, 0.65, 0.22) } }, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 6;
     scene.add(this.mesh); this.geo = g;
-    this.samples = []; this.strength = 0;
+    this.samples = []; this.t = 0; this.heavy = false;
   }
   push(h, t, on, heavy) {
-    if (on) { this.samples.unshift([h.clone(), t.clone()]); if (this.samples.length > TRAIL_N) this.samples.pop(); this.strength = heavy ? 1.6 : 1.0; }
+    if (!on) return;
+    this.samples.unshift({ h: h.clone().lerp(t, TRAIL_IN), t: t.clone(), at: this.t });
+    this.heavy = heavy;
   }
-  update(dt, active) {
-    if (!active) { this.strength = Math.max(0, this.strength - dt * 7); if (this.strength <= 0) this.samples.length = 0; }
-    const S = this.samples, n = S.length;
-    for (let i = 0; i < TRAIL_N; i++) {
-      const s = S[Math.min(i, n - 1)];
-      for (let j = 0; j < 2; j++) {
-        const p = s ? s[j] : null, o = (i * 2 + j) * 3;
-        this.pos[o] = p ? p.x : 0; this.pos[o + 1] = p ? p.y : -99; this.pos[o + 2] = p ? p.z : 0;
-        this.alpha[i * 2 + j] = s && i < n ? (1 - i / TRAIL_N) * this.strength * 0.9 : 0;
+  update(dt) {
+    this.t += dt;
+    const maxAge = TRAIL_AGE * (this.heavy ? 1.4 : 1), S = this.samples;
+    while (S.length && this.t - S[S.length - 1].at > maxAge) S.pop();
+    const n = S.length;
+    this.mesh.visible = n > 1;
+    if (n < 2) return;
+    let k = 0;
+    const put = (h, t, age, f) => {
+      if (k >= TRAIL_N) return;
+      const o = k * 6, a = Math.pow(clamp(1 - age / maxAge, 0, 1), 1.6) * (this.heavy ? 1.25 : 0.9) * (1 - f * 0.7);
+      this.pos[o] = h.x; this.pos[o + 1] = h.y; this.pos[o + 2] = h.z; this.pos[o + 3] = t.x; this.pos[o + 4] = t.y; this.pos[o + 5] = t.z;
+      this.alpha[k * 2] = this.alpha[k * 2 + 1] = a; k++;
+    };
+    const cr = (p0, p1, p2, p3, u, out) => {
+      const u2 = u * u, u3 = u2 * u;
+      for (const c of ['x', 'y', 'z']) out[c] = 0.5 * (2 * p1[c] + (p2[c] - p0[c]) * u + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * u2 + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * u3);
+      return out;
+    };
+    const H = this._h || (this._h = new THREE.Vector3()), T = this._t || (this._t = new THREE.Vector3());
+    const steps = (n - 1) * TRAIL_SUB;
+    for (let i = 0; i < n - 1 && k < TRAIL_N; i++) {
+      const a = S[Math.max(0, i - 1)], b = S[i], c = S[i + 1], d = S[Math.min(n - 1, i + 2)];
+      for (let j = 0; j < TRAIL_SUB && k < TRAIL_N; j++) {
+        const u = j / TRAIL_SUB, f = (i * TRAIL_SUB + j) / steps;
+        put(cr(a.h, b.h, c.h, d.h, u, H), cr(a.t, b.t, c.t, d.t, u, T), this.t - lerp(b.at, c.at, u), f);
       }
     }
+    put(S[n - 1].h, S[n - 1].t, this.t - S[n - 1].at, 1);
+    for (let i = k; i < TRAIL_N; i++) {              // collapse the unused tail onto the last point
+      const o = i * 6, l = (k - 1) * 6;
+      for (let j = 0; j < 6; j++) this.pos[o + j] = this.pos[l + j];
+      this.alpha[i * 2] = this.alpha[i * 2 + 1] = 0;
+    }
     this.geo.attributes.position.needsUpdate = true; this.geo.attributes.alpha.needsUpdate = true;
-    this.mesh.visible = n > 1 && this.strength > 0;
   }
-  clear() { this.samples.length = 0; this.strength = 0; }
+  clear() { this.samples.length = 0; this.mesh.visible = false; }
 }

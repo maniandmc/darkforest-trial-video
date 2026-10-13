@@ -157,6 +157,7 @@ export const RECIPES = {
   bossSwing: (A, t, o) => burst(A, t, { type: 'lowpass', f0: 220, f1: 1300, q: 1.6, attack: 0.12, dur: (o.dur || 0.35) + 0.2, gain: 0.6, curve: 'lin', wet: 0.2 }),
   slam: (A, t) => boom(A, t, 1.0),
   stomp: (A, t) => boom(A, t, 0.8),
+  thud: (A, t, o) => { const k = o.k || 1; tone(A, t, { f0: 110, f1: 48, dur: 0.14, gain: 0.3 * k }); burst(A, t, { type: 'lowpass', f0: 700, f1: 150, dur: 0.12, gain: 0.22 * k }); },
   step: (A, t, o) => { const k = o.k || 1; tone(A, t, { f0: 52, f1: 30, dur: 0.32, gain: 0.45 * k }); burst(A, t, { type: 'lowpass', f0: 380, f1: 120, dur: 0.22, gain: 0.3 * k }); },
   roar: (A, t, o) => roar(A, t, { dur: o.dur || 2.2, pitch: o.pitch || 1, gain: o.gain || 0.75 }),
   windup: (A, t) => burst(A, t, { type: 'bandpass', f0: 180, f1: 420, q: 3, attack: 0.25, dur: 0.4, gain: 0.25, curve: 'lin', wet: 0.4 }),

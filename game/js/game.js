@@ -88,6 +88,9 @@ export class Game {
     const tmp = new THREE.Vector3();
     E.on('swing', ({ kind }) => S.play(kind === 'heavy' ? 'swingHeavy' : 'swing'));
     E.on('roll', () => S.play('roll'));
+    E.on('player-step', st => { if (st.sprint) fx.dust(st.at, 0.3, 2, 0.35); });
+    E.on('player-land', l => { fx.dust(l.at, 0.6 * l.k, 8 * l.k, 0.55 * l.k); S.play('thud', { k: 0.55 * l.k }); });
+    E.on('heavy-impact', h => { fx.dust(h.at, 0.9, 14, 0.7); S.play('thud', { k: 1.3 }); this.rig.shake(0.22); });
     E.on('healed', () => { S.play('heal'); fx.embersAround(tmp.copy(this.player.pos).setY(0.2), 0.8, 30, 1.5); });
     E.on('ring', w => fx.ringFor(w));
     E.on('player-hit-boss', h => {
@@ -333,7 +336,7 @@ export class Game {
     this.boss.update(dt, c);
     this.arena.update(dt, this.clock);
     this.fx.update(dt, this.clock);
-    this.fx.trail.update(dt, false);
+    this.fx.trail.update(dt);
   }
 
   tickTitle(dt, inp) {
@@ -391,9 +394,9 @@ export class Game {
     const tel = this.boss.telegraph();
     if (tel && tel.name === 'nova' && tel.tag === 'windup') this.fx.gather(this.boss.parts.body.wb, 10, 140 * sdt);
     if (this.boss.phase >= 2 && this.boss.alive) this.fx.embersAround(this.boss.parts.body.wb, 2.5, 10 * sdt, 1.5);
-    const pa = this.player.atk, swinging = this.player.state === 'attack' && pa;
-    this.fx.trail.push(this.player.hilt, this.player.tip, swinging && this.player.t >= pa.d.windup - 0.02 && this.player.t <= pa.d.windup + pa.d.active + 0.05, pa?.kind === 'heavy');
-    this.fx.trail.update(dt, !!swinging);
+    const pa = this.player.atk;
+    this.fx.trail.push(this.player.hilt, this.player.tip, this.player.anim.trailOn, pa?.kind === 'heavy');
+    this.fx.trail.update(sdt);
     this.fx.update(sdt, this.clock);
     this.arena.update(dt, this.clock);
     this.rig.update(dt, inp, this.player, this.boss, this.locked && this.boss.alive && this.player.alive);

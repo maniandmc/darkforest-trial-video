@@ -36,7 +36,8 @@ export class CameraRig {
     // pull back when the boss is near, wherever the camera points
     const bd = Math.hypot(boss.pos.x - player.pos.x, boss.pos.z - player.pos.z);
     this.close = damp(this.close || 0, boss.alive ? clamp((14 - bd) / 10, 0, 1) : 0, 3, dt);
-    this.dist = 7.4 + this.close * 2.6;
+    this.spr = damp(this.spr || 0, player.sprinting ? 1 : 0, 3, dt);       // a touch of speed when sprinting
+    this.dist = 7.4 + this.close * 2.6 + this.spr * 0.35;
     this.target.x = damp(this.target.x, player.pos.x, 12, dt);
     this.target.z = damp(this.target.z, player.pos.z, 12, dt);
     this.target.y = damp(this.target.y, 1.75, 8, dt);
@@ -51,7 +52,7 @@ export class CameraRig {
       this._l.set(this.target.x + rx * sh, this.target.y + 0.4, this.target.z + rz * sh).lerp(bc, 0.3 + this.close * 0.25);
     } else this._l.set(this.target.x + fx * 2 + rx * sh, this.target.y + 0.5 - sp * 0.8 + this.close * 2.2, this.target.z + fz * 2 + rz * sh);
     this._p.y = Math.max(this._p.y, 0.45);
-    this.apply(dt, this._p, this._l, 60 + this.close * 8);
+    this.apply(dt, this._p, this._l, 60 + this.close * 8 + this.spr * 5);
   }
 
   apply(dt, pos, look, fov) {

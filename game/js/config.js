@@ -6,7 +6,8 @@ export const CFG = {
     hp: 100, stamina: 100,
     runSpeed: 4.8, sprintSpeed: 7.4, healSpeed: 1.5, turnRate: 14,
     staminaRegen: 42, regenDelay: 0.55, exhaustDelay: 1.0, sprintCost: 15,
-    light: { cost: 15, dmg: 46, poise: 8, windup: 0.13, active: 0.15, recovery: 0.34, chainFrom: 0.1, rollFrom: 0.16, lunge: 2.6 },
+    // light chain: per-step damage / poise (opener, backhand, spinning finisher)
+    light: { cost: 15, dmg: [30, 46, 52], poise: [4.5, 7, 9], windup: 0.13, active: 0.15, recovery: 0.34, chainFrom: 0.1, rollFrom: 0.16, lunge: 2.6 },
     heavy: { cost: 30, dmg: 105, poise: 24, windup: 0.46, active: 0.16, recovery: 0.46, rollFrom: 0.28, lunge: 3.2 },
     roll: { cost: 20, dur: 0.62, speed: 8.6, iStart: 0.04, iEnd: 0.42 },
     flasks: 3, heal: { dur: 1.2, at: 0.72, amount: 60 },

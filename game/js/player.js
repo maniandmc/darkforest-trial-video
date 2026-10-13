@@ -1,29 +1,20 @@
 // The hooded wanderer: locomotion, stamina, attacks (3-hit light chain, charged heavy), roll with i-frames, healing flasks.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { clamp, lerp, ease, approachAngle, wrapAngle, segSegDist } from './math.js';
+import { approachAngle } from './math.js';
 import { buildPlayerModel } from './playermodel.js';
+import { PlayerAnim } from './playeranim.js';
 
 const P = CFG.player;
-const REST_ARM = { yaw: -0.3, pitch: 0.95, roll: 0.0 };
-// light chain: [windup pose, end-of-swing pose]
-const LIGHT = [
-  { from: { yaw: -1.95, pitch: 0.12, roll: -0.3 }, to: { yaw: 1.35, pitch: 0.38, roll: 0.3 } },
-  { from: { yaw: 1.7, pitch: -0.05, roll: 0.4 }, to: { yaw: -1.55, pitch: 0.42, roll: -0.3 } },
-  { from: { yaw: -0.55, pitch: -1.45, roll: 0.0 }, to: { yaw: 0.35, pitch: 1.05, roll: 0.0 } },
-];
-const HEAVY = { from: { yaw: 0.05, pitch: -2.35, roll: 0 }, to: { yaw: 0.1, pitch: 1.2, roll: 0 } };
-const lerpPose = (a, b, t) => ({ yaw: lerp(a.yaw, b.yaw, t), pitch: lerp(a.pitch, b.pitch, t), roll: lerp(a.roll, b.roll, t) });
 
 export class Player {
   constructor(scene, mats) {
     this.mats = mats;
     this.root = new THREE.Group();
-    this.body = new THREE.Group(); this.body.position.y = 0.55; this.root.add(this.body);
-    const off = new THREE.Group(); off.position.y = -0.55; this.body.add(off); this.model = off;
-
-    const P_ = buildPlayerModel(off, mats);
-    Object.assign(this, { cloak: P_.cloak, armR: P_.armR, armL: P_.armL, sword: P_.sword, blade: P_.blade, flask: P_.flask, lantern: P_.lantern, tail: P_.tail });
+    this.rig = buildPlayerModel(this.root, mats);
+    Object.assign(this, { sword: this.rig.sword, blade: this.rig.blade, flask: this.rig.flask });
+    this.hitAway = new THREE.Vector3(0, 0, -1); this.hitKind = 'hit'; this.serial = 0;
+    this.anim = new PlayerAnim(this, this.rig);
 
     scene.add(this.root);
     this.hilt = new THREE.Vector3(); this.tip = new THREE.Vector3();
@@ -36,11 +27,11 @@ export class Player {
     this.yaw = 0; this.vel = new THREE.Vector3();
     this.hp = P.hp; this.st = P.stamina; this.regenWait = 0; this.flasks = P.flasks;
     this.state = 'idle'; this.t = 0; this.iUntil = 0; this.buffer = null;
-    this.atk = null; this.chain = 0; this.moving = 0; this.sprinting = false; this.bob = 0;
-    this.arm = { ...REST_ARM }; this.armLp = { yaw: 0.25, pitch: 0.95, roll: 0 };
+    this.atk = null; this.chain = 0; this.moving = 0; this.sprinting = false;
     this.healed = false; this.hurtFlash = 0; this.dead = false; this.dotAcc = 0;
     this.root.position.copy(this.pos); this.root.rotation.set(0, 0, 0);
-    this.body.rotation.set(0, 0, 0);
+    this.swordPrimed = false;
+    this.anim.reset();
   }
 
   get alive() { return this.state !== 'dead'; }
@@ -51,7 +42,7 @@ export class Player {
   spend(c) { this.st -= c; this.regenWait = this.st <= 0 ? P.exhaustDelay : P.regenDelay; this.st = Math.max(this.st, -10); }
   canAct() { return this.st > 0; }
 
-  setState(s) { this.state = s; this.t = 0; }
+  setState(s) { this.state = s; this.t = 0; this.serial++; }
 
   // returns the desired move direction in world space from camera-relative input
   moveDir(inp, camYaw) {
@@ -149,7 +140,7 @@ export class Player {
     const chain = kind === 'light' && this.state === 'attack' && this.atk && this.atk.kind === 'light' ? (this.atk.step + 1) % 3 : 0;
     this.spend(d.cost);
     this.yaw = this.faceTarget(ctx, dir);
-    this.atk = { kind, d, step: chain, hit: false, pose0: { ...this.arm } };
+    this.atk = { kind, d, step: chain, hit: false };
     this.setState('attack');
     this.swordPrimed = false;
     ctx.events.emit('swing-start', { kind });
@@ -181,7 +172,8 @@ export class Player {
     const away = new THREE.Vector3(this.pos.x - info.from.x, 0, this.pos.z - info.from.z);
     if (away.lengthSq() < 1e-4) away.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     away.normalize();
-    this.buffer = null; this.atk = null; this.flask.visible = false;
+    this.hitAway.copy(away); this.hitKind = this.hp <= 0 ? 'dead' : info.kd ? 'kd' : 'hit';
+    this.buffer = null; this.atk = null;
     if (this.hp <= 0) {
       this.hp = 0; this.setState('dead'); this.vel.copy(away).multiplyScalar(4);
       ctx.events.emit('player-dead');
@@ -202,7 +194,8 @@ export class Player {
     const a = new THREE.Vector3(this.pos.x - from.x, 0, this.pos.z - from.z);
     if (a.lengthSq() < 1e-4) a.set(0, 0, -1);
     a.normalize();
-    this.atk = null; this.flask.visible = false; this.buffer = null;
+    this.hitAway.copy(a); this.hitKind = 'push';
+    this.atk = null; this.buffer = null;
     this.setState('hit'); this.vel.copy(a).multiplyScalar(speed);
   }
 
@@ -232,61 +225,11 @@ export class Player {
     }
   }
 
-  // procedural animation of the rig
+  // the rig is posed by PlayerAnim; the sword's world segment is the hit box
   animate(dt, ctx) {
-    const s = this.state, t = this.t;
-    let arm = REST_ARM, bodyPitch = 0, bodyY = 0.55, bodyRoll = 0, spin = 0;
-    this.flask.visible = false;
-    if (s === 'move' || s === 'idle') {
-      const spd = this.moving;
-      this.bob += dt * (spd > 0.1 ? spd * 2.1 : 1.5);
-      bodyY += spd > 0.1 ? Math.abs(Math.sin(this.bob)) * 0.06 : Math.sin(this.bob) * 0.008;
-      bodyPitch = spd * 0.035 * (this.sprinting ? 1.6 : 1);
-      arm = { yaw: REST_ARM.yaw - 0.1 * Math.sin(this.bob) * (spd > 0.1 ? 1 : 0), pitch: REST_ARM.pitch + (this.sprinting ? 0.5 : 0), roll: 0 };
-    } else if (s === 'attack' && this.atk) {
-      const a = this.atk, d = a.d, sw = a.kind === 'heavy' ? HEAVY : LIGHT[a.step];
-      const tA = d.windup, tB = tA + d.active;
-      if (t < tA) { arm = lerpPose(a.pose0, sw.from, ease.outQ(t / tA)); bodyPitch = a.kind === 'heavy' ? -0.12 * (t / tA) : 0; }
-      else if (t < tB) { arm = lerpPose(sw.from, sw.to, ease.inOutQ((t - tA) / d.active)); bodyPitch = a.kind === 'heavy' ? 0.3 : 0.12; }
-      else { const k = ease.inOutS(Math.min((t - tB) / d.recovery, 1)); arm = lerpPose(sw.to, REST_ARM, k); bodyPitch = (a.kind === 'heavy' ? 0.3 : 0.12) * (1 - k); }
-    } else if (s === 'roll') {
-      const k = Math.min(t / P.roll.dur, 1);
-      spin = ease.inOutQ(Math.min(k / 0.82, 1)) * Math.PI * 2;
-      bodyY = 0.55 - 0.22 * Math.sin(Math.PI * Math.min(k / 0.82, 1));
-      arm = { yaw: -0.2, pitch: 1.4, roll: 0 };
-    } else if (s === 'heal') {
-      const k = Math.min(t / P.heal.dur, 1);
-      this.flask.visible = !this.healed || t < P.heal.at + 0.2;
-      this.armLp = { yaw: 0.2, pitch: lerp(0.95, -0.75, Math.sin(Math.PI * k)), roll: 0 };
-    } else if (s === 'hit') {
-      bodyPitch = -0.35 * Math.exp(-t * 6);
-    } else if (s === 'down') {
-      const k = t / P.downTime;
-      bodyPitch = k < 0.7 ? -1.45 * ease.outQ(Math.min(k / 0.18, 1)) : -1.45 * (1 - ease.inOutQ((k - 0.7) / 0.3));
-      bodyY = 0.55 - 0.3 * (k < 0.7 ? Math.min(k / 0.18, 1) : 1 - (k - 0.7) / 0.3);
-    } else if (s === 'dead') {
-      bodyPitch = -1.5 * ease.outQ(Math.min(t / 0.6, 1)); bodyY = 0.55 - 0.32 * Math.min(t / 0.6, 1);
-    }
-    if (s !== 'heal') this.armLp = { yaw: 0.25 + (s === 'move' ? 0.1 * Math.sin(this.bob) : 0), pitch: 0.95, roll: 0 };
-    // smooth the arm between states (attacks drive it directly)
-    const k = s === 'attack' ? 1 : 1 - Math.exp(-18 * dt);
-    this.arm = s === 'attack' ? arm : lerpPose(this.arm, arm, k);
-
-    this.root.position.copy(this.pos);
-    this.root.rotation.y = this.yaw;
-    this.body.position.y = bodyY;
-    this.body.rotation.set(bodyPitch + spin, 0, bodyRoll);
-    this.armR.rotation.set(this.arm.pitch, this.arm.yaw, this.arm.roll);
-    this.armL.rotation.set(this.armLp.pitch, this.armLp.yaw, this.armLp.roll);
-    const mv = Math.min(this.moving / 5, 1);
-    this.cloak.scale.set(1 + 0.05 * mv, 1, 1 + 0.08 * mv);
-    // lantern and sash tail swing with motion
-    this.lanSwing = lerp(this.lanSwing || 0, -mv * 0.5 + Math.sin(this.bob * 2) * 0.12 * mv, 1 - Math.exp(-6 * dt));
-    this.lantern.rotation.x = this.lanSwing; this.tail.rotation.x = 0.15 + mv * 0.6 + Math.sin(this.bob * 2 + 1) * 0.1;
+    this.anim.update(dt, ctx);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 3);
-
     this.prevHilt.copy(this.hilt); this.prevTip.copy(this.tip);
-    this.root.updateMatrixWorld(true);
     this.hilt.set(0, 0, 0.16); this.sword.localToWorld(this.hilt);
     this.tip.set(0, 0, this.atk && this.atk.kind === 'heavy' ? 1.5 : 1.37); this.sword.localToWorld(this.tip);
     if (!this.swordPrimed) { this.prevHilt.copy(this.hilt); this.prevTip.copy(this.tip); this.swordPrimed = true; }
