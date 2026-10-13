@@ -209,7 +209,7 @@ TL.add({ // TP — the beast rises out of the fire (burn dissolve from the froze
 });
 TL.add({ // FP — your blade ignites in front of it — NINE CIRCLES
   t0: B(11), scene: 'beast3d', shake: 0.3,
-  params(lt, t) { return { ro: [0.25, 1.68, -12.2 + lt * 0.15], ta: [0, 8.8, 0], fl: 1.25, rise: -0.6, eyes: 1, cracks: 0.7, fire: 0.85, smoke: 0.45, flash: 0.1 * pulse(t, B(11, 1.5), 0.15) }; },
+  params(lt, t) { return { ro: [0.25, 1.68, -12.2 + lt * 0.15], ta: [0, 10.5, 0], fl: 1.0, rise: -0.6, eyes: 1, cracks: 0.7, fire: 0.85, smoke: 0.45, flash: 0.1 * pulse(t, B(11, 1.5), 0.15) }; },
   dof: () => ({ focus: 13, aperture: 3, max: 8 }),
   vm(lt) {
     const s = sway(lt, 1.5);
@@ -218,16 +218,16 @@ TL.add({ // FP — your blade ignites in front of it — NINE CIRCLES
   comp(c) { hellParticles(c, 1.1); },
   post(p) { gradeHell(p); p.bloom = [0.55, 0.25, 0.6, 0]; },
 });
-TL.add({ // TP — confrontation, ONE SOUL; focus on the hero, the colossus soft behind; the blade swings
+TL.add({ // TP — confrontation, ONE SOUL; wide: the tiny hero before the whole colossus, horn tips in frame; the blade swings
   t0: B(12), scene: 'beast3d', shake: 0.6,
   params(lt, t) {
     const roar = E.outE(ramp(lt, 0.0, 0.25)) * (0.75 + 0.25 * Math.sin(lt * 20));
     const sw = E.outE(ramp(t, B(12, 2), B(12, 2) + 0.14));
-    return { ro: [lerp(1.1, 0.8, lt / 1.78), 1.6, lerp(-16.8, -16.0, lt / 1.78)], ta: [0, 4.9, 0], fl: 1.1, rise: -0.6, eyes: 1, roar, cracks: 0.9,
+    return { ro: [lerp(1.3, 0.9, lt / 1.78), 1.25, lerp(-21.8, -20.8, lt / 1.78)], ta: [0, 8.4, 0], fl: 0.9, rise: -0.6, eyes: 1, roar, cracks: 0.9,
       fire: 0.75 + 0.15 * pulse(lt, 0, 0.5), smoke: 0.45, heroOn: 1, hero: [0, 0, -12], ignite: 1, swing: lerp(0.35, 2.3, sw), flash: 0.35 * pulse(t, B(12, 2), 0.1),
-      fgFire: 0.4, key: 1.5 };
+      fgFire: 0.4, key: 1.15 };
   },
-  dof: () => ({ focus: 4.8, aperture: 4, max: 10 }),
+  dof: () => ({ focus: 9.4, aperture: 2.5, max: 8 }),
   comp(c) { hellParticles(c, 1.3); },
   post(p) { gradeHell(p); p.bloom = [0.55, 0.25, 0.6, 0]; },
 });
@@ -238,7 +238,7 @@ function slashVM(lt, o = {}) {
   const pos = [lerp(o.x0 || 0.64, o.x1 || -0.08, k), lerp(o.y0 || 0.10, o.y1 || -0.20, k)];
   return { sword: { pos, scale: o.scale || 0.42, ang: lerp(a0, a1, k), ignite: 1, trail: Math.exp(-Math.max(0, lt - (o.dur || 0.17)) / 0.13) * Math.min(1, lt * 40), trailFrom: a0 }, ...ENV_HELL, soft: 0.003 };
 }
-const beastClose = (lt, o = {}) => ({ ro: [0.2, 1.7, -10.5], ta: [0, 9.2, 0], fl: 1.2, rise: -0.6, eyes: 1.1, roar: 0.5, cracks: 1, fire: 0.9, smoke: 0.4, ...o });
+const beastClose = (lt, o = {}) => ({ ro: [0.2, 1.7, -10.5], ta: [0, 10.5, 0], fl: 1.0, rise: -0.6, eyes: 1.1, roar: 0.5, cracks: 1, fire: 0.9, smoke: 0.4, ...o });
 TL.add({ t0: B(13), scene: 'beast3d', shake: 0.9, mb: 6, // FP — the slash
   params(lt) { return beastClose(lt); },
   vm(lt) { return slashVM(lt); },
@@ -269,7 +269,7 @@ const BUILD = [
   ['gate3d', lt => ({ ro: [3 - lt * 4, 1.7, -26], ta: [3 - lt * 4, 19.9, 0], fl: 3.6, portal: 1.3, burn: 1.2, wanOn: 0, haze: 0.8 }), lt => ({ lantern: { pos: [-0.62, 0.13], scale: 0.28, rot: 0.1, flame: 1 }, ...ENV_HELL })],
   ['descent', lt => ({ prog: 5 + lt * 4, spin: lt * 3, focal: 0.8, fire: 1.3, ring: 1.5 }), lt => ({ reach: { pos: [0.3, -0.22 - lt * 0.6], scale: 0.62, ang: -0.42, open: 0.9 }, ...ENV_HELL })],
   ['forestpr', null, null, true],
-  ['beast3d', lt => ({ ro: [3.0, 3.2, -22], ta: [0, 9.2, 0], fl: 1.5, rise: -0.6, eyes: 1.2, roar: 1, cracks: 1, fire: 1.1, smoke: 0.3 })],
+  ['beast3d', lt => ({ ro: [3.0, 3.2, -22], ta: [0, 10.0, 0], fl: 1.3, rise: -0.6, eyes: 1.2, roar: 1, cracks: 1, fire: 1.1, smoke: 0.3 })],
   ['eye', lt => ({ open: 1, pupil: 0.022, zoom: 1.5 + lt * 2, tilt: -0.1, glow: 0.9, burn: 1, hue: 1 })],
 ];
 BUILD.forEach(([scene, fn, vmf, fpRun], i) => {

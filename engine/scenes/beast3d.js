@@ -10,6 +10,18 @@ SCENES.beast3d = {
   frag: `
 uniform sampler2D uRckD, uRckN, uRckH, uClfD, uClfN;
 float gRoar, gRise; vec3 gHero; float gSw, gIgn;
+float gDet=1.0, gBodyW=0.0;   // gDet: carve armour-plate seams (primary rays + normals only); gBodyW: torso vs skull at the hit
+vec3 hash33(vec3 p){ p=fract(p*vec3(.1031,.1030,.0973)); p+=dot(p,p.yxz+33.33); return fract((p.xxy+p.yxx)*p.zyx); }
+vec2 plates(vec3 x){ // 3D voronoi: (distance to the nearest seam, per-plate random)
+  vec3 n=floor(x), f=fract(x); float d1=8.0, d2=8.0, id=0.0;
+  for(int k=-1;k<=1;k++) for(int j=-1;j<=1;j++) for(int i=-1;i<=1;i++){
+    vec3 g=vec3(float(i),float(j),float(k)); vec3 r=g+hash33(n+g)*0.8+0.1-f; float d=dot(r,r);
+    if(d<d1){ d2=d1; d1=d; id=hash13(n+g+0.37); } else if(d<d2) d2=d;
+  }
+  return vec2(sqrt(d2)-sqrt(d1), id);
+}
+// warped, unmirrored domain so the plates read as grown, not tiled or mirrored
+vec3 plateP(vec3 q){ return q*0.52+0.45*vec3(noise3(q*0.42),noise3(q*0.42+vec3(7.1,3.3,1.9)),noise3(q*0.42+vec3(2.7,8.4,5.1))); }
 vec3 bodyP(vec3 p){ return p-vec3(0.0,-gRise,0.0); }
 vec3 bez3(vec3 a, vec3 b, vec3 c, vec3 d, float t){ float u=1.0-t; return u*u*u*a+3.0*u*u*t*b+3.0*u*t*t*c+t*t*t*d; }
 float hornD(vec3 q){ // q: x mirrored. massive bull/ram horn: out, up, tip curling forward — chain of round cones
@@ -57,10 +69,21 @@ float beastD(vec3 p, out float part){
   float horn=hornD(q)+0.03*sin(length(q-vec3(1.35,11.35,0.45))*10.0);
   if(horn<d) part=1.0;
   d=smin(d,horn,0.3);
-  // neck, shoulders, spikes
+  // neck, shoulders, chest anatomy, spikes
   float neck=sdCapsule(q,vec3(0.0,8.4,1.2),vec3(0.0,4.0,2.0),2.4);
   float sh=sdEllip(q-vec3(0.0,2.2,2.6),vec3(10.5,4.2,4.8))+0.32*sin(q.x*1.6+q.z*0.7)*sin(q.y*1.2+0.5)+0.18*sin(q.x*3.1-q.y*2.3);
-  d=smin(d,smin(neck,sh,1.6),1.0);
+  float body=smin(neck,sh,1.6);
+  body=smin(body,sdEllip(q-vec3(2.5,4.4,-0.9),vec3(2.6,1.8,1.6)),0.9);            // pectoral masses
+  body=smin(body,sdCapsule(q,vec3(0.6,6.6,-0.2),vec3(5.4,6.9,1.3),0.48),0.6);      // collarbones
+  body=smin(body,sdCapsule(q,vec3(0.9,8.2,1.6),vec3(6.2,5.8,2.6),1.25),1.0);      // trapezius
+  body=smax(body,-sdEllip(q-vec3(0.0,4.4,-2.55),vec3(0.38,2.6,0.9)),0.45);         // sternum furrow
+  if(gDet>0.5 && body<0.6){                                                        // basalt armour plates, seams sunk
+    vec2 pl=plates(plateP(bodyP(p)));
+    float seam=smoothstep(0.0,0.09,pl.x);
+    body=(body+0.1*(1.0-seam)-0.07*pl.y*seam)*0.8;
+  }
+  gBodyW=sat((d-body)/0.8+0.5);
+  d=smin(d,body,1.0);
   for(int i=0;i<4;i++){ float fi=float(i); vec3 b=vec3(3.4+fi*2.1,5.4-fi*0.6-fi*fi*0.12,2.0+fi*0.3);
     d=smin(d,sdRoundCone(q,b,b+vec3(0.6+fi*0.25,2.4-fi*0.35,0.6),0.62,0.04),0.25); }
   return d;
@@ -99,14 +122,14 @@ vec3 calcN(vec3 p, float e){
   return normalize(k.xyy*map(p+k.xyy*e,id)+k.yyx*map(p+k.yyx*e,id)+k.yxy*map(p+k.yxy*e,id)+k.xxx*map(p+k.xxx*e,id));
 }
 float softShadow(vec3 ro, vec3 rd, float tmax, float k){
-  float res=1.0, t=0.1;
+  float res=1.0, t=0.1; gDet=0.0;
   for(int i=0;i<28;i++){ float h=mapS(ro+rd*t); res=min(res,k*h/t); t+=clamp(h,0.08,2.0); if(res<0.02||t>tmax) break; }
-  return sat(res);
+  gDet=1.0; return sat(res);
 }
 float calcAO(vec3 p, vec3 n){
-  float occ=0.0, sca=1.0;
+  float occ=0.0, sca=1.0; gDet=0.0;
   for(int i=0;i<5;i++){ float h=0.06+0.3*float(i); occ+=(h-mapS(p+n*h))*sca; sca*=0.7; }
-  return sat(1.0-0.8*occ);
+  gDet=1.0; return sat(1.0-0.8*occ);
 }
 // fire wall behind the beast (plane at z=+22), domain-warped flames rising
 vec3 fireWall(vec2 p, float t){
@@ -138,22 +161,41 @@ void main(){
   vec3 col=vec3(0.0); float depth=500.0;
   float tz=(22.0-ro.z)/max(rd.z,1e-3);
   vec3 bg=rd.z>0.0?fireWall((ro+rd*tz).xy,uTime):vec3(0.0);
+  float halo=max(dot(rd,normalize(vec3(0.0,13.5-gRise,22.0)-ro)),0.0);
+  bg+=vec3(0.75,0.22,0.06)*(pow(halo,30.0)*0.55+pow(halo,6.0)*0.08)*uP[3].x*(0.7+0.3*fbm(rd.xy*6.0+uTime*0.1,3));
   if(hit){
-    vec3 p=ro+rd*t; map(p,id); depth=t;
+    vec3 p=ro+rd*t; map(p,id); depth=t; float bodyW=gBodyW;
     vec3 n=calcN(p,0.001*t+0.002);
     vec3 v=-rd;
     float lod=log2(max(t*800.0/(fl*uRes.y)/max(abs(dot(n,v)),0.3),1.0));
     vec3 alb; vec3 nn=n; float rough=0.7; vec3 emit=vec3(0.0);
+    float specK=0.15;
     if(id<2.5){
       float s=id<1.5?0.32:0.6;
       alb=triAlb(uRckD,p,n,s,lod)*(id<1.5?0.75:0.5);
       nn=triNor(uRckN,p,n,s,lod,1.6);
       if(id<1.5){
+        vec3 qa=bodyP(p);
+        // macro breakup at a second scale kills the visible tiling of the scan
+        vec3 a2=triAlb(uRckD,p+vec3(13.7,5.1,9.3),n,0.07,max(lod-2.2,0.0));
+        alb*=0.55+0.9*luma(a2);
+        vec2 pl=plates(plateP(qa));
+        float seam=mix(1.0,smoothstep(0.0,0.09,pl.x),bodyW);
+        alb*=mix(1.0,(0.45+0.5*pl.y)*0.7,bodyW);                                     // charred basalt, each plate weathered its own way
+        alb*=mix(0.15,1.0,smoothstep(0.0,0.16,pl.x)*bodyW+1.0-bodyW);                // soot along the seams
+        float ash=smoothstep(0.5,0.95,n.y)*smoothstep(0.42,0.68,fbm3(qa*1.3,3));
+        alb=mix(alb,vec3(0.15,0.14,0.13),ash*0.6);                                   // ash settled on the ledges
         float hgt=triH(uRckH,p,n,s,lod);
         float crev=smoothstep(0.30,0.12,hgt)*smoothstep(0.45,0.7,fbm(p.xy*0.25+uTime*0.05,3))*uP[2].z;
-        crev*=smoothstep(9.5,6.0,bodyP(p).y)+0.35;
+        crev*=(smoothstep(9.5,6.0,qa.y)+0.35)*(1.0-0.6*bodyW);
         emit+=fireCol(0.85+0.25*sin(uTime*2.0+p.y))*crev*1.8;
-        rough=mix(0.55,0.9,hgt);
+        // magma breathing through the plate seams, hotter low on the body near the pit
+        // only some seams are live: a slow mask picks the fissures, plus a heat gradient up from the pit
+        float live=smoothstep(0.45,0.62,fbm3(qa*0.32+vec3(0.0,-uTime*0.05,0.0),3));
+        float hot=(smoothstep(8.5,2.5,qa.y)*0.8+0.2)*live*uP[2].z*(0.75+0.25*sin(uTime*2.3+qa.y*1.7+pl.y*6.0));
+        emit+=fireCol(0.95)*pow(1.0-seam,2.0)*1.9*hot;
+        emit+=fireCol(0.45)*smoothstep(0.2,0.0,pl.x)*bodyW*0.1*hot;               // heat bleeding into plate edges
+        rough=mix(0.3,0.85,hgt*seam); specK=0.4;                                     // glassy basalt faces
       } else rough=0.45;
     } else if(id<3.5){
       alb=vec3(0.025,0.022,0.024)*(0.85+0.3*noise(p.xy*80.0)); rough=0.9;
@@ -169,11 +211,11 @@ void main(){
     float ndl=max(dot(nn,ld),0.0);
     float sh=ndl>0.0?softShadow(p+n*0.05,ld,dd-0.5,9.0):0.0;
     vec3 Kc=vec3(1.0,0.42,0.13)*uP[5].z*260.0/(1.0+dd*dd*0.35);
-    col=alb*Kc*ndl*sh+Kc*specGGX(nn,v,ld,rough)*0.15*sh;
+    col=alb*Kc*ndl*sh+Kc*specGGX(nn,v,ld,rough)*specK*sh;
     // fire wall rim from behind
     vec3 bL=normalize(vec3(0.0,0.25,1.0));
     float rim=pow(1.0-max(dot(nn,v),0.0),3.0)*max(dot(nn,bL)+0.35,0.0);
-    col+=vec3(1.0,0.38,0.1)*rim*1.6*uP[3].x*ao;
+    col+=vec3(1.0,0.38,0.1)*rim*(id>1.5&&id<2.5?2.6:1.6)*uP[3].x*ao;
     col+=alb*vec3(0.35,0.12,0.06)*0.35*ao;                // red ambient
     col+=alb*vec3(0.18,0.22,0.32)*0.25*max(nn.y,0.0)*ao;     // faint cold sky
     col+=emit;
