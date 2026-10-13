@@ -14,12 +14,12 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
         const g = GAME; g.opts.seed = 1000 + r * 77; g.startFight();
         const bot = new Bot(g, { skill, passive: skill === 0 });
         const hits = {}; let dmgTaken = 0;
-        if (!g._statHook) { g._statHook = true; g.events.on('player-hurt', i => { g._hits[i.src] = (g._hits[i.src] || 0) + 1; g._dmg += i.dmg; }); g.events.on('boss-attack', a => { g._atk[a.name] = (g._atk[a.name] || 0) + 1; }); g.events.on('boss-stagger', () => g._stag++); }
-        g._hits = hits; g._dmg = 0; g._atk = {}; g._stag = 0;
+        if (!g._statHook) { g._statHook = true; g.events.on('player-hurt', i => { g._hits[i.src] = (g._hits[i.src] || 0) + 1; g._dmg += i.dmg; g._dmgBy[i.src] = (g._dmgBy[i.src] || 0) + i.dmg; }); g.events.on('boss-attack', a => { g._atk[a.name] = (g._atk[a.name] || 0) + 1; }); g.events.on('boss-stagger', () => g._stag++); }
+        g._hits = hits; g._dmg = 0; g._dmgBy = {}; g._atk = {}; g._stag = 0;
         let t = 0; const dt = 1 / 60;
         while (t < 600 && g.state === 'fight') { bot.step(dt); g.tick(dt); t += dt; }
         out.push({ result: g.state === 'fight' ? 'timeout' : g.state, t: +t.toFixed(1), bossHp: g.boss.hp, playerHp: g.player.hp, flasks: g.player.flasks,
-          hits: g._hits, dmgTaken: g._dmg, atk: g._atk, staggers: g._stag, rolls: bot.stats.rolls, swings: bot.stats.attacks, phase: g.boss.phase });
+          hits: g._hits, dmgTaken: g._dmg, dot: Math.round(g.player.dotAcc || 0), dmgBy: g._dmgBy, atk: g._atk, staggers: g._stag, rolls: bot.stats.rolls, swings: bot.stats.attacks, phase: g.boss.phase });
       }
       return out;
     }, { skill, runs });

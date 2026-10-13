@@ -56,8 +56,21 @@ export class Bot {
       const pd = Math.hypot(p.pos.x - w.c.x, p.pos.z - w.c.z);
       const gap = pd - w.r;
       if (pd > w.maxR + 0.8) continue;                            // it will never reach us
-      if (gap > 0 && gap < w.speed * 0.12 + 0.6 && p.state !== 'roll' && p.st > 0 && rand() < this.skill + 0.1) {
-        this.setMove(v, p.pos.x - w.c.x, p.pos.z - w.c.z); v.roll = true; this.stats.rolls++; return;
+      // roll *through* the front (toward its centre): rolling away lets a fast ring catch you after the i-frames
+      if (gap > 0 && gap < w.speed * 0.1 + 1.4 && p.state !== 'roll' && p.st > 0 && rand() < this.skill + 0.1) {
+        this.setMove(v, w.c.x - p.pos.x, w.c.z - p.pos.z); v.roll = true; this.stats.rolls++; return;
+      }
+    }
+    // lava: get out of marked / burning circles
+    for (const pool of g.combat.pools) {
+      const pd = Math.hypot(p.pos.x - pool.c.x, p.pos.z - pool.c.z);
+      if (pd < pool.r + 0.7) {
+        const left = pool.warn - pool.t;
+        if (!busy || p.state === 'attack') {
+          if (left > 0 && left < 0.35 && p.st > 0 && p.state !== 'roll' && rand() < this.skill) { this.setMove(v, p.pos.x - pool.c.x, p.pos.z - pool.c.z); v.roll = true; return; }
+          this.setMove(v, p.pos.x - pool.c.x + (-dz) * 0.2, p.pos.z - pool.c.z + dx * 0.2); v.sprint = p.st > 30;
+          if (!busy) return;
+        }
       }
     }
     if (busy) {
@@ -110,6 +123,9 @@ export class Bot {
       case 'stomp': return d < 7 ? { until: until + 0.02, dir: 'away' } : null;
       case 'charge': return ang < 0.6 ? { until: until + Math.max(0, d - 4) / 15, dir: 'side' } : null;
       case 'combo': return d < 8 && ang < 1.6 ? { until, dir: 'side' } : null;
+      case 'lava': return d < 9.8 && ang < 0.95 ? { until: until + 0.05, dir: 'side' } : null;
+      case 'nova': return d < 4 && tel.tag === 'windup' ? { until: until + 0.05, dir: 'away' } : null;
+      case 'roar': return null;
       default: return d < 8 ? { until, dir: 'side' } : null;
     }
   }

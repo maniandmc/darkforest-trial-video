@@ -70,7 +70,7 @@ export class Player {
     this.state = 'idle'; this.t = 0; this.iUntil = 0; this.buffer = null;
     this.atk = null; this.chain = 0; this.moving = 0; this.sprinting = false; this.bob = 0;
     this.arm = { ...REST_ARM }; this.armLp = { yaw: 0.25, pitch: 0.95, roll: 0 };
-    this.healed = false; this.hurtFlash = 0; this.dead = false;
+    this.healed = false; this.hurtFlash = 0; this.dead = false; this.dotAcc = 0;
     this.root.position.copy(this.pos); this.root.rotation.set(0, 0, 0);
     this.body.rotation.set(0, 0, 0);
   }
@@ -116,7 +116,7 @@ export class Player {
     this.sprinting = false;
     const startBuffered = () => {
       const b = this.buffer; if (!b) return false;
-      if (b.a === 'roll' && this.canAct()) { this.buffer = null; this.startRoll(dir); return true; }
+      if (b.a === 'roll' && this.canAct()) { this.buffer = null; this.startRoll(dir); ctx.events.emit('roll'); return true; }
       if ((b.a === 'light' || b.a === 'heavy') && this.canAct()) { this.buffer = null; this.startAttack(b.a, dir, ctx); return true; }
       if (b.a === 'heal' && this.flasks > 0) { this.buffer = null; this.flasks--; this.healed = false; this.setState('heal'); ctx.events.emit('heal-start'); return true; }
       return false;
@@ -226,6 +226,23 @@ export class Player {
       this.iUntil = ctx.time + P.hurtInvuln;
     }
     return true;
+  }
+
+  // pushed by a roar: brief stagger, no damage
+  push(from, speed, ctx) {
+    if (!this.alive || this.state === 'down') return;
+    const a = new THREE.Vector3(this.pos.x - from.x, 0, this.pos.z - from.z);
+    if (a.lengthSq() < 1e-4) a.set(0, 0, -1);
+    a.normalize();
+    this.atk = null; this.flask.visible = false; this.buffer = null;
+    this.setState('hit'); this.vel.copy(a).multiplyScalar(speed);
+  }
+
+  // damage over time (lava): no stun, can kill
+  applyDot(amount, ctx) {
+    if (!this.alive) return;
+    this.hp -= amount; this.dotAcc = (this.dotAcc || 0) + amount;
+    if (this.hp <= 0) { this.hp = 0; this.setState('dead'); this.atk = null; ctx.events.emit('player-dead'); }
   }
 
   startRoll(dir) {

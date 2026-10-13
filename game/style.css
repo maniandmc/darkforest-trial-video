@@ -43,3 +43,31 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color:
 .sub { font-family: 'Cormorant', serif; font-style: italic; font-size: clamp(18px, 2vw, 26px); color: #cbbba3; }
 .prompt { margin-top: 28px; font-size: 14px; letter-spacing: .2em; color: #9d8f7b; animation: pulse 2s infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
+
+#vignette.burn { opacity: 1 !important; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(255, 90, 10, .35) 78%, rgba(200, 40, 0, .7) 100%); }
+
+.logo { font-family: 'Cinzel Decorative', 'Cinzel', serif; font-weight: 700; font-size: clamp(40px, 8vw, 120px); letter-spacing: .08em; color: #f1e3c8;
+  text-shadow: 0 0 30px rgba(255, 120, 40, .55), 0 0 2px #000; line-height: 1; }
+.tagline { font-family: 'Cormorant', serif; font-style: italic; font-size: clamp(16px, 2vw, 24px); color: #c9a982; margin-bottom: 26px; }
+#title { background: linear-gradient(180deg, rgba(0,0,0,.55), rgba(0,0,0,.05) 35%, rgba(0,0,0,.1) 60%, rgba(0,0,0,.8)); justify-content: flex-start; padding-top: 14vh; }
+.mbtn { font-family: 'Cinzel', serif; font-size: 16px; letter-spacing: .22em; text-transform: uppercase; color: #ecdcc0; background: rgba(12, 7, 5, .55);
+  border: 1px solid rgba(217, 183, 122, .45); padding: 10px 26px; min-width: 240px; cursor: pointer; transition: all .2s; }
+.mbtn:hover { background: rgba(120, 40, 10, .55); border-color: #e8b26a; color: #fff; box-shadow: 0 0 18px rgba(255, 120, 40, .35); }
+.mbtn.dim { opacity: .7; min-width: 160px; font-size: 13px; }
+.big-btn { font-size: 19px; padding: 14px 40px; }
+.qrow { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12px; letter-spacing: .2em; color: #a8977e; text-transform: uppercase; }
+.qrow span { margin-right: 8px; }
+.qrow button { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .12em; color: #b9a88f; background: transparent; border: 1px solid rgba(217,183,122,.25); padding: 5px 12px; cursor: pointer; }
+.qrow button.sel { color: #fff; border-color: #e8b26a; background: rgba(120, 40, 10, .45); }
+.controls { position: absolute; bottom: 5vh; display: grid; grid-template-columns: repeat(4, auto); gap: 8px 28px; font-family: system-ui, sans-serif; font-size: 13px; color: #b7a891; }
+.controls b { color: #ecdcc0; font-family: 'Cinzel', serif; font-weight: 600; margin-right: 6px; }
+@media (max-width: 760px) { .controls { grid-template-columns: repeat(2, auto); position: static; margin-top: 24px; } }
+.stats { font-family: 'Cormorant', serif; font-style: italic; font-size: 18px; color: #bba98e; margin: 4px 0 14px; }
+
+#namecard { position: fixed; left: 0; right: 0; bottom: 18vh; text-align: center; pointer-events: none; opacity: 0; transform: translateY(10px); transition: opacity 1s, transform 1.4s; }
+#namecard.on { opacity: 1; transform: none; }
+.cname { font-size: clamp(48px, 7vw, 96px); letter-spacing: .3em; color: #f3e6cf; text-shadow: 0 0 30px rgba(255, 110, 30, .6), 0 2px 2px #000; padding-left: .3em; }
+.ctitle { font-family: 'Cormorant', serif; font-style: italic; font-size: clamp(18px, 2.2vw, 28px); color: #d2b48a; margin-top: 4px; }
+#namecard::after { content: ''; display: block; width: min(560px, 60vw); height: 1px; margin: 14px auto 0; background: linear-gradient(90deg, transparent, #d9b77a, transparent); }
+#skip { position: fixed; right: 28px; bottom: 24px; font-size: 12px; letter-spacing: .2em; color: #8e7f6b; opacity: 0; transition: opacity .6s; pointer-events: none; }
+#skip.on { opacity: 1; }

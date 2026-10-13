@@ -9,9 +9,18 @@ const _pa = new THREE.Vector3(), _pb = new THREE.Vector3();
 const SAMPLES = 4;
 
 export class Combat {
-  constructor(game) { this.game = game; this.waves = []; }
+  constructor(game) { this.game = game; this.waves = []; this.pools = []; }
 
-  reset() { this.waves.length = 0; }
+  reset() { this.waves.length = 0; this.pools.length = 0; }
+
+  // lava pool: telegraphed circle, erupts after the warning, then burns while you stand in it
+  pool(center, opts) {
+    const p = { c: new THREE.Vector3(center.x, 0, center.z), r: opts.r || 2.5, t: 0, warn: opts.warn || 1.15, life: opts.life || 5.5,
+      dmg: opts.dmg || 22, dps: opts.dps || 14, erupted: false, done: false };
+    this.pools.push(p);
+    this.game.events.emit('pool', p);
+    return p;
+  }
 
   // player blade (hilt→tip, swept) against every boss hurtbox capsule; first contact wins
   playerSwordSweep(player, atk) {
@@ -67,7 +76,7 @@ export class Combat {
   // expanding ground ring: hits the player once when the front passes them (roll through it, or outrun it)
   ring(center, opts) {
     const w = { c: new THREE.Vector3(center.x, 0, center.z), r: opts.r0 || 0, speed: opts.speed || 30, maxR: opts.maxR, width: opts.width || 1.4,
-      dmg: opts.dmg, kd: !!opts.kd, kb: opts.kb || 7, hit: false, t: 0, kind: opts.kind || 'shock', prevR: opts.r0 || 0 };
+      dmg: opts.dmg, kd: !!opts.kd, kb: opts.kb || 7, hit: false, t: 0, kind: opts.kind || 'shock', prevR: opts.r0 || 0, push: !!opts.push };
     this.waves.push(w);
     this.game.events.emit('ring', w);
     return w;
@@ -84,11 +93,28 @@ export class Combat {
         const lo = w.prevR - w.width * 0.5 - CFG.player.radius, hi = w.r + w.width * 0.5 + CFG.player.radius;
         if (d >= lo && d <= hi) {
           w.hit = true;
-          const ok = this.applyToPlayer({ dmg: w.dmg, kd: w.kd, kb: w.kb, from: w.c.clone(), at: pl.pos.clone(), src: w.kind });
-          if (!ok) w.hit = false, w.dodged = true;
+          if (w.push) { if (!pl.invulnerable(g.time)) pl.push(w.c, w.kb, g.ctx); }
+          else {
+            const ok = this.applyToPlayer({ dmg: w.dmg, kd: w.kd, kb: w.kb, from: w.c.clone(), at: pl.pos.clone(), src: w.kind });
+            if (!ok) w.hit = false, w.dodged = true;
+          }
         }
       }
       if (w.r >= w.maxR && w.t > 0.05) { if (!w.done) { w.done = true; } this.waves.splice(i, 1); }
+    }
+    pl.burning = false;
+    for (let i = this.pools.length - 1; i >= 0; i--) {
+      const p = this.pools[i];
+      p.t += dt;
+      const d = Math.hypot(pl.pos.x - p.c.x, pl.pos.z - p.c.z), inside = d < p.r + CFG.player.radius * 0.4;
+      if (!p.erupted && p.t >= p.warn) {
+        p.erupted = true; g.events.emit('pool-erupt', p);
+        if (inside && pl.alive) this.applyToPlayer({ dmg: p.dmg, kd: false, kb: 6, from: p.c.clone(), at: pl.pos.clone(), src: 'lava' });
+      } else if (p.erupted && inside && pl.alive && pl.state !== 'down') {
+        pl.burning = true;
+        pl.applyDot(p.dps * dt, g.ctx);
+      }
+      if (p.t >= p.warn + p.life) { p.done = true; this.pools.splice(i, 1); }
     }
   }
 }

@@ -27,8 +27,40 @@
 <div id="vignette"></div>
 <div id="flash"></div>
 
-<div id="victory" class="screen"><div class="big gold">THE ABYSS FALLS SILENT</div><div class="sub">Dite is vanquished</div><div class="prompt">R · Enter — 다시 도전</div></div>
-<div id="defeat" class="screen"><div class="big red">THE STRAIGHT WAY WAS LOST</div><div class="sub">you have fallen</div><div class="prompt">R · Enter — 다시 도전</div></div>
+<div id="namecard"><div class="cname">DITE</div><div class="ctitle">Colossus of the Ninth Circle</div></div>
+<div id="skip">Space · Enter — 건너뛰기</div>
+
+<div id="title" class="screen">
+  <div class="logo">SELVA OSCURA</div>
+  <div class="tagline">abandon all hope, ye who enter here</div>
+  <button id="btn-start" class="mbtn big-btn">Enter the Abyss</button>
+  <div class="qrow"><span>Quality</span><button data-q="high">High</button><button data-q="medium">Medium</button><button data-q="low">Low</button></div>
+  <div class="controls">
+    <div><b>WASD</b> 이동</div><div><b>Mouse</b> 카메라</div><div><b>Left / Right click</b> 약공격 / 강공격</div>
+    <div><b>Space</b> 구르기 (무적)</div><div><b>Shift</b> 달리기</div><div><b>E</b> 회복 (3회)</div><div><b>Q</b> 락온</div><div><b>Esc</b> 일시정지</div>
+  </div>
+</div>
+
+<div id="pause" class="screen">
+  <div class="big">PAUSED</div>
+  <button id="btn-resume" class="mbtn">Resume</button>
+  <button id="btn-restart" class="mbtn">Restart fight</button>
+  <div class="qrow"><span>Quality</span><button data-q="high">High</button><button data-q="medium">Medium</button><button data-q="low">Low</button></div>
+  <button id="btn-title" class="mbtn dim">Title</button>
+</div>
+
+<div id="victory" class="screen">
+  <div class="big gold">THE ABYSS FALLS SILENT</div><div class="sub">Dite, Colossus of the Ninth Circle, is vanquished</div>
+  <div id="victory-stats" class="stats"></div>
+  <button id="btn-retry" class="mbtn">Fight again</button><button id="btn-title2" class="mbtn dim">Title</button>
+  <div class="prompt">R · Enter</div>
+</div>
+<div id="defeat" class="screen">
+  <div class="big red">THE STRAIGHT WAY WAS LOST</div><div class="sub">you have fallen</div>
+  <div id="defeat-stats" class="stats"></div>
+  <button id="btn-retry2" class="mbtn">Try again</button><button id="btn-title3" class="mbtn dim">Title</button>
+  <div class="prompt">R · Enter</div>
+</div>
 
 <script type="module" src="js/main.js"></script>
 </body>

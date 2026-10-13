@@ -10,8 +10,8 @@ window.GAME = game;
 window.Bot = Bot;
 
 if (!test) {
-  canvas.addEventListener('click', () => game.input.requestLock());
-  game.startFight();
+  canvas.addEventListener('click', () => { if (game.state === 'fight') game.input.requestLock(); });
+  game.toTitle();
   let last = performance.now();
   const frame = now => {
     const dt = Math.min((now - last) / 1000, 1 / 20); last = now;

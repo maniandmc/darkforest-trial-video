@@ -56,6 +56,45 @@ function ATTACKS(boss) {
         { tag: 'recover', dur: 0.85, ease: ease.inOutS, to: REST, track: 0.6, punish: true },
       ];
     },
+    roar: () => [
+      { tag: 'windup', dur: 0.7, ease: ease.outQ, track: 2.0, noSpeed: true,
+        to: { lean: -0.3, headPitch: -0.5, jaw: 0.25, crouch: 0.45, handR: { a: -1.2, r: 3.4, y: 5.0 }, handL: { a: 1.2, r: 3.4, y: 5.0 }, glow: 0.6 } },
+      { tag: 'roar', dur: 1.5, ease: ease.outQ, onStart: 'roar',
+        to: { jaw: 1, headPitch: -0.72, lean: -0.42, crouch: 0.1, handR: { a: -1.65, r: 4.6, y: 6.9 }, handL: { a: 1.65, r: 4.6, y: 6.9 }, glow: 1.6 } },
+      { tag: 'recover', dur: 0.8, ease: ease.inOutS, to: REST, track: 0.8 },
+    ],
+    lava: () => [
+      { tag: 'windup', dur: 1.0, ease: ease.outQ, track: 1.2,
+        to: { handR: { a: -0.42, r: 1.5, y: 10.4 }, handL: { a: 0.42, r: 1.5, y: 10.4 }, lean: -0.22, crouch: 0.1, headPitch: -0.3, glow: 1.0 } },
+      { tag: 'active', dur: 0.17, ease: ease.inQ, track: 0, onEnd: 'lavaCall', hit: { parts: ['fistR', 'fistL'], dmg: 30, kd: true, kb: 9 },
+        to: { handR: { a: -0.26, r: 4.5, y: 0.9 }, handL: { a: 0.26, r: 4.5, y: 0.9 }, crouch: 1.45, lean: 0.78, headPitch: 0.2, glow: 0.4 } },
+      { tag: 'recover', dur: 0.9, to: {}, punish: true },
+      { tag: 'recover', dur: 0.7, ease: ease.inOutS, to: REST, track: 0.5 },
+    ],
+    combo: () => [
+      { tag: 'windup', dur: 0.62, ease: ease.outQ, track: 1.8,
+        to: { handR: { a: -2.0, r: 3.8, y: 4.0 }, handL: { a: 0.8, r: 2.6, y: 3.4 }, twist: -0.6, crouch: 0.45, lean: 0.15 } },
+      { tag: 'active', dur: 0.28, ease: ease.inOutQ, track: 0, hit: { parts: ['fistR', 'foreR'], dmg: 20, kb: 6 },
+        to: { handR: { a: 1.25, r: 5.0, y: 1.5 }, twist: 0.5 } },
+      { tag: 'windup', dur: 0.5, ease: ease.outQ, track: 1.6,
+        to: { handL: { a: 2.0, r: 3.8, y: 4.0 }, handR: { a: -0.6, r: 2.8, y: 3.0 }, twist: 0.65 } },
+      { tag: 'active', dur: 0.28, ease: ease.inOutQ, track: 0, hit: { parts: ['fistL', 'foreL'], dmg: 20, kb: 6 },
+        to: { handL: { a: -1.25, r: 5.0, y: 1.5 }, twist: -0.5 } },
+      { tag: 'windup', dur: 0.62, ease: ease.outQ, track: 1.4,
+        to: { handR: { a: -0.3, r: 1.4, y: 10.4 }, handL: { a: 0.3, r: 1.4, y: 10.4 }, twist: 0, lean: -0.25, crouch: 0.1, glow: 0.8 } },
+      { tag: 'active', dur: 0.16, ease: ease.inQ, track: 0, onEnd: 'comboSlam', hit: { parts: ['fistR', 'fistL'], dmg: 30, kd: true, kb: 10 },
+        to: { handR: { a: -0.25, r: 4.6, y: 0.9 }, handL: { a: 0.25, r: 4.6, y: 0.9 }, crouch: 1.45, lean: 0.78, glow: 0.3 } },
+      { tag: 'recover', dur: 1.0, to: {}, punish: true },
+      { tag: 'recover', dur: 0.7, ease: ease.inOutS, to: REST, track: 0.5 },
+    ],
+    nova: () => [
+      { tag: 'windup', dur: 1.6, ease: ease.inOutS, track: 0.6, noSpeed: true, onStart: 'novaCharge',
+        to: { crouch: 1.0, lean: 0.35, handR: { a: -0.9, r: 1.9, y: 4.0 }, handL: { a: 0.9, r: 1.9, y: 4.0 }, headPitch: 0.25, glow: 2.6, jaw: 0.35 } },
+      { tag: 'active', dur: 0.25, ease: ease.outQ, track: 0, onStart: 'novaBlast',
+        to: { crouch: -0.2, lean: -0.35, handR: { a: -1.7, r: 4.8, y: 6.0 }, handL: { a: 1.7, r: 4.8, y: 6.0 }, headPitch: -0.5, jaw: 1, glow: 3 } },
+      { tag: 'recover', dur: 1.4, to: { glow: 0.4 }, punish: true },
+      { tag: 'recover', dur: 0.8, ease: ease.inOutS, to: REST, track: 0.5 },
+    ],
     stomp: () => [
       { tag: 'windup', dur: 0.85, ease: ease.outQ, track: 1.0,
         to: { stompR: 1, crouch: -0.25, lean: -0.12, sway: 0.2, handR: { a: -1.1, r: 3.3, y: 4.8 }, handL: { a: 1.1, r: 3.3, y: 4.8 }, glow: 0.4 } },
@@ -101,6 +140,7 @@ export class Boss {
     this.pose = clonePose(REST); this.segStart = clonePose(REST); this.segTarget = clonePose(REST);
     this.atk = null; this.seg = 0; this.lastAtk = []; this.cool = {};
     this.gait = 0; this.speed = 0; this.solid = true; this.footprint = B.bodyRadius;
+    this.ai = true; this.pendingRoar = false; this.introT = 1; this.root.position.y = 0; this.lastPlant = [false, false];
     this.dmgFlash = 0; this.glowBase = 0; this.dead = false; this.primed = false;
     this.distToPlayer = 20; this.angToPlayer = 0;
     this.applyPose(0);
@@ -129,9 +169,19 @@ export class Boss {
     switch (this.state) {
       case 'idle': {
         this.blendTo(REST, dt, 5);
-        this.turnToward(toP, B.turnRate * dt);
+        if (this.ai) this.turnToward(toP, B.turnRate * dt);
         this.timer -= dt;
-        if (this.timer <= 0 && plAlive) this.decide(ctx);
+        if (this.pendingRoar && plAlive) { this.pendingRoar = false; this.startAttack('roar', ctx); break; }
+        if (this.timer <= 0 && plAlive && this.ai) this.decide(ctx);
+        break;
+      }
+      case 'intro': {
+        // rising out of the pit; the cutscene drives introT 0..1
+        const k = clamp(this.introT, 0, 1);
+        this.root.position.y = -11.5 * Math.pow(1 - ease.outC(clamp(k / 0.62, 0, 1)), 1.0);
+        const roarK = clamp((k - 0.55) / 0.2, 0, 1) * (1 - clamp((k - 0.92) / 0.08, 0, 1));
+        mixPose(REST, ROAR, roarK, this.pose);
+        this.pose.headPitch += (1 - clamp(k / 0.5, 0, 1)) * 0.4;
         break;
       }
       case 'chase': {
@@ -140,6 +190,7 @@ export class Boss {
         moveSpeed = Math.abs(this.angToPlayer) < 1.2 ? B.walkSpeed * this.phaseCfg().speed : 0.6;
         this.timer -= dt;
         if (!plAlive) { this.state = 'idle'; this.timer = 9e9; break; }
+        if (this.pendingRoar) { this.pendingRoar = false; this.startAttack('roar', ctx); break; }
         if (this.timer <= 0 || this.inRangeOf(this.wanted)) this.decide(ctx, true);
         break;
       }
@@ -195,6 +246,11 @@ export class Boss {
     if (d > 2.6 && d < 7.6 && a < 0.9) w.slam = 3;
     if (d > 1.5 && d < 6.6 && a < 1.25) w.sweep = 3;
     if (d > 10 && (this.cool.charge || 0) <= 0) w.charge = d > 15 ? 5 : 2;
+    if (this.phase >= 1) {
+      if (d > 1.5 && d < 6.4 && a < 0.9) w.combo = 3.2;
+      if (d < 17 && (this.cool.lava || 0) <= 0) w.lava = d > 8 ? 4 : 2.2;
+    }
+    if (this.phase >= 2 && d < 15 && (this.cool.nova || 0) <= 0) w.nova = 4;
     for (const k in w) {
       const rep = this.lastAtk.filter(x => x === k).length;
       w[k] *= rep >= 2 ? 0.15 : rep === 1 ? 0.55 : 1;
@@ -217,6 +273,8 @@ export class Boss {
     this.atk = { name, segs: this.attacks[name](), hits: new Set() };
     this.lastAtk.push(name); if (this.lastAtk.length > 3) this.lastAtk.shift();
     if (name === 'charge') this.cool.charge = 6;
+    if (name === 'lava') this.cool.lava = 10;
+    if (name === 'nova') this.cool.nova = 14;
     this.state = 'attack'; this.seg = -1; this.nextSeg(ctx);
     this.events.emit('boss-attack', { name });
   }
@@ -229,9 +287,10 @@ export class Boss {
     this.seg++;
     const s = this.curSeg();
     if (!s) { this.endAttack(); return; }
-    const pc = this.phaseCfg();
-    s._dur = s.tag === 'windup' ? Math.max(s.dur / pc.speed, Math.min(s.dur, B.minWindup)) : s.dur / pc.speed;
+    const pc = this.phaseCfg(), sp = s.noSpeed ? 1 : pc.speed;
+    s._dur = s.tag === 'windup' ? Math.max(s.dur / sp, Math.min(s.dur, B.minWindup)) : s.dur / sp;
     s._t = 0;
+    if (s.onStart) this.events.emit('boss-impact', { kind: s.onStart, boss: this, dur: s._dur });
     this.segStart = clonePose(this.pose);
     this.segTarget = s.to === REST ? clonePose(REST) : clonePose({ ...this.pose, ...s.to });
     if (s.tag === 'active') this.atk.hits.clear();
@@ -284,7 +343,7 @@ export class Boss {
     } else {
       // phase change
       const f = this.hp / B.hp;
-      for (let i = B.phases.length - 1; i > this.phase; i--) if (f <= B.phases[i].from) { this.phase = i; this.events.emit('boss-phase', { phase: i }); break; }
+      for (let i = B.phases.length - 1; i > this.phase; i--) if (f <= B.phases[i].from) { this.phase = i; this.pendingRoar = true; this.events.emit('boss-phase', { phase: i }); break; }
     }
     return dealt;
   }
@@ -329,6 +388,9 @@ export class Boss {
       const H = toLocal(side === 'R' ? this.hipR : this.hipL, v[0]);
       const ph = g + (side === 'R' ? 0 : Math.PI);
       const st = side === 'R' ? P.stompR : P.stompL;
+      const up = Math.cos(ph) > 0 && amt > 0.2, si = side === 'R' ? 0 : 1;
+      if (this.lastPlant[si] && !up) this.events.emit('boss-step', { side, amt, run });
+      this.lastPlant[si] = up;
       const F = v[1].set(sgn * (1.3 + P.kneel * 0.3), Math.max(0, Math.cos(ph)) * lift * amt + st * 3.1, 0.25 + Math.sin(ph) * stride * 0.45 * amt + st * 1.1 + (side === 'R' ? P.kneel * 1.6 : -P.kneel * 0.8));
       if (side === 'L' && P.kneel > 0) F.y = Math.max(F.y, 0);
       const pole = v[2].set(H.x + sgn * 0.4, H.y - 1, H.z + 4);
@@ -361,6 +423,7 @@ export class Boss {
 
 const STAGGER = { ...clonePose(REST), kneel: 1, crouch: 0.3, lean: 0.55, headPitch: 0.45, jaw: 0.6,
   handR: { a: -0.5, r: 3.2, y: 0.6 }, handL: { a: 0.55, r: 3.0, y: 1.6 }, glow: -0.3 };
+const ROAR = { ...clonePose(REST), jaw: 1, headPitch: -0.72, lean: -0.42, crouch: 0.1, handR: { a: -1.65, r: 4.6, y: 6.9 }, handL: { a: 1.65, r: 4.6, y: 6.9 }, glow: 1.6 };
 const DEAD = { ...clonePose(REST), kneel: 1.25, crouch: 0.6, lean: 1.05, headPitch: 0.7, jaw: 0.9,
   handR: { a: -0.6, r: 3.6, y: 0.4 }, handL: { a: 0.6, r: 3.6, y: 0.4 }, glow: -1 };
 

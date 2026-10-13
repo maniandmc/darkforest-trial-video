@@ -25,10 +25,17 @@ export class HUD {
     this.el.bossDmg.textContent = this.dmgSum; this.el.bossDmg.classList.add('on');
   }
   playerHurt(amount) { this.hurt = Math.min(1, this.hurt + 0.5 + amount / 60); }
-  flash(color = '255,240,220', a = 0.6) { const f = this.el.flash; f.style.transition = 'none'; f.style.background = `rgba(${color},${a})`; f.offsetWidth; f.style.transition = 'background .35s ease-out'; f.style.background = `rgba(${color},0)`; }
+  // full-screen flash, decayed on the game clock (deterministic for recorded footage)
+  flash(color = '255,240,220', a = 0.6) { this.flashC = color; this.flashA = Math.max(this.flashA || 0, a); }
+  tickFlash(dt) {
+    this.flashA = (this.flashA || 0) * Math.exp(-dt * 7);
+    if (this.flashA < 0.004) this.flashA = 0;
+    this.el.flash.style.background = `rgba(${this.flashC || '255,255,255'},${this.flashA.toFixed(3)})`;
+  }
 
   update(dt, game) {
     const p = game.player, b = game.boss, E = this.el;
+    this.tickFlash(dt);
     const hp = p.hp / CFG.player.hp;
     E.hp.style.width = (hp * 100) + '%';
     this.hpLag = this.hpLag > hp ? Math.max(hp, this.hpLag - dt * 0.35) : hp;
@@ -55,5 +62,7 @@ export class HUD {
     } else E.reticle.style.display = 'none';
   }
 
-  reset() { this.hpLag = 1; this.bossLag = 1; this.dmgSum = 0; this.dmgT = 0; this.hurt = 0; this.el.bossDmg.classList.remove('on'); }
+  burning(on) { this.el.vignette.classList.toggle('burn', !!on); }
+
+  reset() { this.flashA = 0; this.hpLag = 1; this.bossLag = 1; this.dmgSum = 0; this.dmgT = 0; this.hurt = 0; this.el.bossDmg.classList.remove('on'); }
 }
