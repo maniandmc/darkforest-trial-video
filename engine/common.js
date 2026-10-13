@@ -71,6 +71,35 @@ float sdRoundCone(vec3 p, vec3 a, vec3 b, float r1, float r2){
   if(sign(y)*a2*y2<k) return sqrt(x2+y2)*il2-r1;
   return (sqrt(x2*a2*il2)+y*rr)*il2-r1;
 }
+// triplanar photo-material sampling (explicit LOD: safe inside non-uniform control flow)
+vec3 triW(vec3 n){ vec3 w=pow(abs(n),vec3(4.0)); return w/(w.x+w.y+w.z); }
+vec3 triAlb(sampler2D t, vec3 p, vec3 n, float s, float lod){
+  vec3 w=triW(n);
+  return textureLod(t,p.zy*s,lod).rgb*w.x+textureLod(t,p.xz*s,lod).rgb*w.y+textureLod(t,p.xy*s,lod).rgb*w.z;
+}
+float triH(sampler2D t, vec3 p, vec3 n, float s, float lod){
+  vec3 w=triW(n);
+  return textureLod(t,p.zy*s,lod).r*w.x+textureLod(t,p.xz*s,lod).r*w.y+textureLod(t,p.xy*s,lod).r*w.z;
+}
+vec3 triNor(sampler2D t, vec3 p, vec3 n, float s, float lod, float k){   // whiteout-blended normal map
+  vec3 w=triW(n);
+  vec3 tx=textureLod(t,p.zy*s,lod).xyz*2.0-1.0, ty=textureLod(t,p.xz*s,lod).xyz*2.0-1.0, tz=textureLod(t,p.xy*s,lod).xyz*2.0-1.0;
+  tx.xy*=k; ty.xy*=k; tz.xy*=k;
+  tx=vec3(tx.xy+n.zy,abs(tx.z)*n.x); ty=vec3(ty.xy+n.xz,abs(ty.z)*n.y); tz=vec3(tz.xy+n.xy,abs(tz.z)*n.z);
+  return normalize(tx.zyx*w.x+ty.xzy*w.y+tz.xyz*w.z);
+}
+float sdBox3(vec3 p, vec3 b){ vec3 q=abs(p)-b; return length(max(q,0.0))+min(max(q.x,max(q.y,q.z)),0.0); }
+float sdEllip(vec3 p, vec3 r){ float k0=length(p/r); float k1=length(p/(r*r)); return k0*(k0-1.0)/max(k1,1e-5); }
+float specGGX(vec3 n, vec3 v, vec3 l, float rough){
+  vec3 h=normalize(v+l); float a=rough*rough; float a2=a*a;
+  float nh=max(dot(n,h),0.0); float d=nh*nh*(a2-1.0)+1.0;
+  return a2/(PI*d*d)*max(dot(n,l),0.0)*0.25;
+}
+// in-scattering of a point light along a ray segment [0,tEnd] (fog of unit density)
+float inscatter(vec3 ro, vec3 rd, vec3 lp, float tEnd){
+  vec3 lo=lp-ro; float tc=dot(lo,rd); float h=max(length(lo-rd*tc),0.05);
+  return (atan((tEnd-tc)/h)-atan(-tc/h))/h;
+}
 vec3 aces(vec3 x){ return sat((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14)); }
 float luma(vec3 c){ return dot(c, vec3(0.2126,0.7152,0.0722)); }
 // blackbody-ish ember palette, t in 0..1+

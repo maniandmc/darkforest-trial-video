@@ -23,6 +23,7 @@ async function init(opts = {}) {
   R.gfxCanvas = makeCanvas(W, H); R.gfx = R.gfxCanvas.getContext('2d');
   R.txtTex = GLX.texture(R.txtCanvas); R.gfxTex = GLX.texture(R.gfxCanvas);
 
+  if (typeof TEX !== 'undefined') await TEX.load();     // photographic materials (v3)
   const P = {};
   for (const [k, src] of Object.entries(POST)) P[k] = GLX.program(k, src);
   R.post = P;
@@ -32,7 +33,7 @@ async function init(opts = {}) {
     if (sc.init) sc.init(R);
   }
 
-  R.sceneA = GLX.target(W, H); R.sceneB = GLX.target(W, H); R.mix = GLX.target(W, H);
+  R.sceneA = GLX.target(W, H); R.sceneB = GLX.target(W, H); R.mix = GLX.target(W, H); R.dofTmp = GLX.target(W, H);
   R.rays = GLX.target(W >> 1, H >> 1);
   R.comp = GLX.target(W, H); R.acc = GLX.target(W, H); R.vmT = GLX.target(W, H);
   if (typeof VM !== 'undefined') R.vmProg = GLX.program('viewmodel', GLSL_HEAD + GLSL_LIB + VM.frag);
@@ -48,10 +49,15 @@ function renderScene(shot, target, t) {
   if (!prog) throw new Error('unknown scene ' + shot.scene);
   const sc = SCENES[shot.scene];
   const tex = sc.textures ? sc.textures(R, shot) : {};
-  GLX.pass(prog, target, {
+  const dst = shot.dof ? R.dofTmp : target;
+  GLX.pass(prog, dst, {
     uRes: [target.w, target.h], uTime: t, uLT: shot.lt, uP: shot.P,
     uLow: shot.audio.low, uHigh: shot.audio.high, uLvl: shot.audio.lvl,
   }, tex);
+  if (shot.dof) {   // thin-lens depth of field; scenes write view depth (m) into alpha
+    const d = shot.dof;
+    GLX.pass(R.post.dof, target, { uRes: [target.w, target.h], uDof: [d.focus, d.aperture * R.scale, (d.max || 14) * R.scale] }, { uTex: R.dofTmp.tex });
+  }
 }
 
 function drawLayers(st) {

@@ -1,6 +1,8 @@
 # >100 MB (GitHub per-file limit) — regenerate with tools/encode.sh
 out/SELVA_OSCURA_teaser_1080p.mp4
 out/SELVA_OSCURA_v2_FP_1080p.mp4
+out/SELVA_OSCURA_v3_1080p.mp4
 out/frames/
+out/frames_v3/
 __pycache__/
 node_modules/

@@ -101,7 +101,7 @@ GX(B(8), B(10) + 0.42, (ctx, lt, t) => {
 
 // ------------------------------------------------------------------ V. NINE CIRCLES / ONE SOUL
 TX(B(11) + 0.12, B(12) - 0.02, (ctx, lt) => {
-  const nx = CUT === 'v2' ? 560 : 1385;
+  const nx = CUT !== 'v1' ? 560 : 1385;
   TYPE.letters(ctx, 'NINE CIRCLES', nx, 520, { font: F(600, 66), tracking: 14, color: COL.bone,
     each: TYPE.reveal(lt, { stagger: 0.035, blur: 14, rise: 0, grow: 0.12, dur: 0.45, outAt: 1.45, outDur: 0.2, outBlur: 10 }) });
   TYPE.rule(ctx, nx, 572, 380, E.outC(ramp(lt, 0.3, 1.0)) * (1 - ramp(lt, 1.45, 1.6)), 0.8, COL.gold);

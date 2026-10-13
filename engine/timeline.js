@@ -55,7 +55,7 @@ TL.instShot = function (shot, t) {
   const sc = SCENES[shot.scene];
   const P = new Float32Array(48);
   P.set(sc.pack(shot.params(lt, t)).slice(0, 48));
-  return { scene: shot.scene, lt, P, audio: audioAt(t), shot };
+  return { scene: shot.scene, lt, P, audio: audioAt(t), shot, dof: shot.dof ? shot.dof(lt, t) : null };
 };
 TL.evaluate = function (t) {
   const idx = TL.shotAt(t);

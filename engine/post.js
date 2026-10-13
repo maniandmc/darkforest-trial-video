@@ -55,6 +55,27 @@ void main(){
   fragColor=vec4(col,1.0);
 }`;
 
+// ---------------------------------------------------------------- depth of field (scatter-as-gather bokeh, depth in alpha)
+POST.dof = GLSL_HEAD + GLSL_LIB + `
+uniform sampler2D uTex; uniform vec3 uDof;   // focus distance (m), CoC px at infinity, max radius px
+float cocAt(float d){ return min(abs(1.0-uDof.x/max(d,0.05))*uDof.y,uDof.z); }
+void main(){
+  vec2 px=1.0/uRes;
+  vec4 c0=texture(uTex,vUV); float d0=c0.a; float s0=cocAt(d0);
+  vec3 col=c0.rgb; float tot=1.0;
+  float rad=1.0; float ang=hash12(gl_FragCoord.xy)*TAU;
+  for(int i=0;i<90;i++){
+    if(rad>uDof.z) break;
+    vec2 tc=vUV+vec2(cos(ang),sin(ang))*px*rad;
+    vec4 s=texture(uTex,tc); float ss=cocAt(s.a);
+    if(s.a>d0) ss=min(ss,s0*2.0);
+    float m=smoothstep(rad-0.5,rad+0.5,ss);
+    col+=mix(col/tot,s.rgb,m); tot+=1.0;
+    ang+=2.39996323; rad+=1.5/rad;
+  }
+  fragColor=vec4(col/tot,d0);
+}`;
+
 // ---------------------------------------------------------------- light shafts (half res)
 POST.rays = GLSL_HEAD + GLSL_LIB + `
 uniform sampler2D uScene; uniform vec2 uLight; uniform vec4 uRayP; // x threshold, y decay, z length
