@@ -1,0 +1,45 @@
+@font-face { font-family: 'Cinzel'; src: url('assets/fonts/Cinzel-normal-400_900-latin.woff2') format('woff2'); font-weight: 400 900; font-display: block; }
+@font-face { font-family: 'Cinzel Decorative'; src: url('assets/fonts/CinzelDecorative-normal-700-latin.woff2') format('woff2'); font-weight: 700; font-display: block; }
+@font-face { font-family: 'Cormorant'; src: url('assets/fonts/CormorantGaramond-italic-300_700-latin.woff2') format('woff2'); font-style: italic; font-weight: 300 700; font-display: block; }
+
+:root { --gold: #d9b77a; --ember: #ff7a2a; --blood: #9e1b12; --ink: #0a0706; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: #e8dccb; font-family: 'Cinzel', serif; user-select: none; }
+#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s; }
+#hud.on { opacity: 1; }
+.bar { position: relative; height: 10px; background: rgba(10, 6, 5, .72); border: 1px solid rgba(217, 183, 122, .35); box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.bar .fill, .bar .lag { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; }
+#pbars { position: absolute; left: 36px; top: 30px; width: min(360px, 34vw); display: grid; gap: 6px; }
+.bar.hp .fill { background: linear-gradient(#b3261a, #6e120b); }
+.bar.hp .lag, .bar.boss .lag { background: #e8c07a; opacity: .75; }
+.bar.st { height: 7px; width: 82%; }
+.bar.st .fill { background: linear-gradient(#5d8a3c, #2d4d1c); transition: background .2s; }
+.bar.st.low .fill { background: #6b2a1b; }
+#flasks { position: absolute; left: 36px; bottom: 34px; display: flex; align-items: center; gap: 10px; font-size: 20px; color: var(--gold); text-shadow: 0 0 6px #000; }
+.flask-ico { width: 26px; height: 34px; border-radius: 40% 40% 45% 45%; background: radial-gradient(circle at 50% 62%, #ffcf7a, #ff7a2a 45%, #6e2a0c 75%); box-shadow: 0 0 14px rgba(255, 122, 42, .7); border: 1px solid #d9b77a66; }
+
+#bossbar { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%); width: min(820px, 64vw); opacity: 0; transition: opacity .8s; }
+#bossbar.on { opacity: 1; }
+.boss-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; text-shadow: 0 0 8px #000, 0 0 2px #000; }
+#boss-name { font-size: 20px; letter-spacing: .14em; color: #efe3cf; }
+#boss-title { font-family: 'Cormorant', serif; font-style: italic; font-size: 17px; color: #bfae95; }
+#boss-dmg { margin-left: auto; font-size: 16px; color: #f2d9a8; opacity: 0; transition: opacity .25s; }
+#boss-dmg.on { opacity: 1; }
+.bar.boss { height: 9px; }
+.bar.boss .fill { background: linear-gradient(#8e1c10, #4e0b06); }
+#bossbar.enraged .bar.boss .fill { background: linear-gradient(#ff5a1a, #8e1c10); box-shadow: 0 0 12px rgba(255, 90, 26, .6); }
+
+#reticle { position: absolute; left: 0; top: 0; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid rgba(255, 236, 200, .9); box-shadow: 0 0 8px rgba(255, 160, 80, .9); display: none; }
+#vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(120, 0, 0, .55) 80%, rgba(90, 0, 0, .9) 100%); }
+#flash { position: fixed; inset: 0; pointer-events: none; background: rgba(255,255,255,0); }
+
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none; opacity: 0; transition: opacity 1.2s; background: radial-gradient(ellipse at center, rgba(0,0,0,.25), rgba(0,0,0,.75)); text-align: center; padding: 0 16px; }
+.screen.on { opacity: 1; pointer-events: auto; }
+.big { font-size: clamp(28px, 4.6vw, 64px); letter-spacing: .12em; font-weight: 600; }
+.big.red { color: #a8231a; text-shadow: 0 0 24px rgba(160, 20, 10, .6); }
+.big.gold { color: var(--gold); text-shadow: 0 0 24px rgba(255, 170, 80, .45); }
+.sub { font-family: 'Cormorant', serif; font-style: italic; font-size: clamp(18px, 2vw, 26px); color: #cbbba3; }
+.prompt { margin-top: 28px; font-size: 14px; letter-spacing: .2em; color: #9d8f7b; animation: pulse 2s infinite; }
+@keyframes pulse { 50% { opacity: .45; } }
