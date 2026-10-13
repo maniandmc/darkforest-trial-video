@@ -9,7 +9,7 @@ out vec4 fragColor;
 uniform vec2 uRes;
 uniform float uTime;
 uniform float uLT;
-uniform vec4 uP[8];
+uniform vec4 uP[12];
 uniform float uLow, uHigh, uLvl;
 #define PI 3.14159265359
 #define TAU 6.28318530718

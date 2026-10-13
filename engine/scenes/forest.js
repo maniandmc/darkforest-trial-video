@@ -107,6 +107,7 @@ void main(){
   vec3 cv=cross(cu,cw);
   vec3 rd=normalize(uv.x*cu+uv.y*cv+uP[0].w*cw);
   { vec3 lq=vec3(-0.32,0.68,0.14); lq.xz=rot(-gYaw)*lq.xz; gLan=gWan+lq; gLan.y+=0.03*abs(sin(gWalk*PI)); }
+  if(uP[8].w>0.5) gLan=uP[8].xyz;                 // first-person: lantern held in front of the camera
 
   float t=0.05, id=0.0, tmax=62.0;
   bool hit=false;
@@ -186,7 +187,7 @@ void main(){
     float tEnd=hit?t:tmax;
     float sc=(atan((tEnd-tc)/h)-atan((0.0-tc)/h))/h;
     float fl=0.85+0.15*sin(uTime*23.0)*sin(uTime*7.3);
-    col+=vec3(1.0,0.48,0.16)*gLanI*fl*(sc*0.012 + (tc<tEnd+0.1? exp(-h*h/0.0004)*2.5:0.0));
+    col+=vec3(1.0,0.48,0.16)*gLanI*fl*(sc*0.012*(uP[8].w>0.5?uP[9].x:1.0) + (tc<tEnd+0.1? exp(-h*h/0.0004)*2.5:0.0));
   }
   // eyes in the dark
   if(uP[7].w>0.0){
@@ -194,7 +195,7 @@ void main(){
     for(int k=0;k<2;k++){
       vec3 e=ep+side*(float(k)*2.0-1.0);
       vec3 lo=e-ro; float tc=dot(lo,rd); float h=length(lo-rd*tc);
-      if(!hit || tc<t+0.2){
+      if(tc>0.0 && (!hit || tc<t+0.2)){            // never through the back of the camera
         float a=h/tc;
         col+=vec3(1.0,0.12,0.03)*uP[7].w*(exp(-a*a/0.0000035)*6.0+exp(-a*a/0.00006)*0.6);
       }
@@ -211,7 +212,8 @@ SCENES.forest.pack = function (o) {
     fogCol: [0.045, 0.06, 0.075], hfog: 0.5, lightCol: [0.62, 0.72, 0.88], back: 1, eyes: [0, 1.5, 20], eyeI: 0,
   }, o);
   return [...d.ro, d.fl, ...d.ta, d.roll, ...d.L, d.fog, ...d.wan, d.wanOn, d.walk, d.lantern, d.yaw, d.moon,
-    ...d.fogCol, d.hfog, ...d.lightCol, d.back, ...d.eyes, d.eyeI];
+    ...d.fogCol, d.hfog, ...d.lightCol, d.back, ...d.eyes, d.eyeI,
+    ...(d.lanPos || [0, 0, 0]), d.lanPos ? 1 : 0, d.halo === undefined ? 0.35 : d.halo, 0, 0, 0];
 };
 SCENES.forest.pathX = z => 1.3 * Math.sin(z * 0.07) + 0.5 * Math.sin(z * 0.19 + 1.3);
 

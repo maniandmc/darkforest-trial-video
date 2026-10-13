@@ -2,6 +2,7 @@
 'use strict';
 
 const F = (w, px, fam = 'Cinzel') => `${w} ${px}px ${fam}`;
+const CUT = window.CUT || 'v1';                 // v2 = first-person cut (sword viewmodel on the right)
 const TX = (t0, t1, draw, fx) => TL.texts.push({ t0, t1, draw, fx });
 const GX = (t0, t1, draw) => TL.gfx.push({ t0, t1, draw });
 
@@ -100,9 +101,10 @@ GX(B(8), B(10) + 0.42, (ctx, lt, t) => {
 
 // ------------------------------------------------------------------ V. NINE CIRCLES / ONE SOUL
 TX(B(11) + 0.12, B(12) - 0.02, (ctx, lt) => {
-  TYPE.letters(ctx, 'NINE CIRCLES', 1385, 520, { font: F(600, 66), tracking: 14, color: COL.bone,
+  const nx = CUT === 'v2' ? 560 : 1385;
+  TYPE.letters(ctx, 'NINE CIRCLES', nx, 520, { font: F(600, 66), tracking: 14, color: COL.bone,
     each: TYPE.reveal(lt, { stagger: 0.035, blur: 14, rise: 0, grow: 0.12, dur: 0.45, outAt: 1.45, outDur: 0.2, outBlur: 10 }) });
-  TYPE.rule(ctx, 1385, 572, 380, E.outC(ramp(lt, 0.3, 1.0)) * (1 - ramp(lt, 1.45, 1.6)), 0.8, COL.gold);
+  TYPE.rule(ctx, nx, 572, 380, E.outC(ramp(lt, 0.3, 1.0)) * (1 - ramp(lt, 1.45, 1.6)), 0.8, COL.gold);
 }, (st, lt) => { st.comp.txtFx[0] = 1.15; });
 TX(B(12) + 0.18, B(13), (ctx, lt) => {
   TYPE.letters(ctx, 'ONE SOUL', 960, 300, { font: F(600, 84), tracking: 20, color: COL.bone,

@@ -74,7 +74,8 @@ void main(){
 
 // ---------------------------------------------------------------- composite
 POST.composite = GLSL_HEAD + GLSL_LIB + `
-uniform sampler2D uScene, uRays, uGfx, uTxt;
+uniform sampler2D uScene, uRays, uGfx, uTxt, uVM;
+uniform float uVMOn;
 uniform vec4 uShake;      // x,y offset (uv units), z rotation, w zoom
 uniform vec4 uZoomBlur;   // xy centre, z strength
 uniform vec3 uRaysCol; uniform float uRaysAmt;
@@ -187,6 +188,7 @@ void main(){
   vec2 su=shakeUV(uv);
   vec3 col=sampleScene(su)*uExposure;
   col+=texture(uRays,su).rgb*uRaysCol*uRaysAmt;
+  if(uVMOn>0.5){ vec4 vm=texture(uVM,su); col=col*(1.0-vm.a)+vm.rgb*uExposure; }   // first-person viewmodel
 
   // particles in screen space (shaken a bit less: parallax feel)
   vec2 pu=(su-0.5)*asp;

@@ -9,7 +9,7 @@ const fs = require('fs'), path = require('path');
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'] });
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
-  await page.goto('file://' + path.resolve(__dirname, '../engine/index.html'));
+  await page.goto('file://' + path.resolve(__dirname, '../engine/' + (process.env.PAGE || 'index.html')));
   await page.evaluate(s => init({ scale: s }), scale);
   const total = await page.evaluate(f => Math.round(TL.duration * f), fps);
   const from = a[5] && !a[5].startsWith('--') ? +a[5] : 0, to = a[6] && !a[6].startsWith('--') ? +a[6] : total;

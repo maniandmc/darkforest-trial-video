@@ -34,7 +34,8 @@ async function init(opts = {}) {
 
   R.sceneA = GLX.target(W, H); R.sceneB = GLX.target(W, H); R.mix = GLX.target(W, H);
   R.rays = GLX.target(W >> 1, H >> 1);
-  R.comp = GLX.target(W, H); R.acc = GLX.target(W, H);
+  R.comp = GLX.target(W, H); R.acc = GLX.target(W, H); R.vmT = GLX.target(W, H);
+  if (typeof VM !== 'undefined') R.vmProg = GLX.program('viewmodel', GLSL_HEAD + GLSL_LIB + VM.frag);
   R.bloom = [];
   let bw = W >> 1, bh = H >> 1;
   for (let i = 0; i < 6; i++) { R.bloom.push(GLX.target(Math.max(bw, 2), Math.max(bh, 2))); bw >>= 1; bh >>= 1; }
@@ -77,14 +78,15 @@ function compositeAt(t, target) {
   if (ry && ry.amt > 0) {
     GLX.pass(R.post.rays, R.rays, { uRes: [R.rays.w, R.rays.h], uTime: t, uLight: ry.light, uRayP: [ry.thresh, ry.decay, ry.len, 0] }, { uScene: src.tex });
   }
+  if (st.vm && R.vmProg) GLX.pass(R.vmProg, R.vmT, { uRes: [R.W, R.H], uTime: t, uP: st.vm }, {});
   drawLayers(st);
   const c = st.comp;
   GLX.pass(R.post.composite, target, {
     uRes: [R.W, R.H], uTime: t,
     uShake: c.shake, uZoomBlur: c.zoomBlur, uRaysCol: ry && ry.col ? ry.col : [0, 0, 0], uRaysAmt: ry && ry.amt ? ry.amt : 0,
     uEmber: c.ember, uEmberC: c.emberC, uAsh: c.ash, uDust: c.dust, uPartC: c.partC,
-    uTxtFx: c.txtFx, uTxtFx2: c.txtFx2, uGfxFx: c.gfxFx, uFlash: c.flash, uExposure: c.exposure,
-  }, { uScene: src.tex, uRays: R.rays.tex, uGfx: R.gfxTex, uTxt: R.txtTex });
+    uTxtFx: c.txtFx, uTxtFx2: c.txtFx2, uGfxFx: c.gfxFx, uFlash: c.flash, uExposure: c.exposure, uVMOn: st.vm ? 1 : 0,
+  }, { uScene: src.tex, uRays: R.rays.tex, uGfx: R.gfxTex, uTxt: R.txtTex, uVM: R.vmT.tex });
   return st;
 }
 

@@ -53,8 +53,9 @@ TL.shotAt = function (t) {
 TL.instShot = function (shot, t) {
   const lt = t - shot.t0;
   const sc = SCENES[shot.scene];
-  const P = sc.pack(shot.params(lt, t));
-  return { scene: shot.scene, lt, P: new Float32Array(P), audio: audioAt(t), shot };
+  const P = new Float32Array(48);
+  P.set(sc.pack(shot.params(lt, t)).slice(0, 48));
+  return { scene: shot.scene, lt, P, audio: audioAt(t), shot };
 };
 TL.evaluate = function (t) {
   const idx = TL.shotAt(t);
@@ -68,6 +69,7 @@ TL.evaluate = function (t) {
     st.trans = { type: tin.type, prog: tin.ease ? tin.ease(lt / tin.dur) : lt / tin.dur, p: tin.p };
   } else st.shot = TL.instShot(shot, t);
   if (shot.rays) st.rays = shot.rays(lt, t);
+  if (shot.vm) { const v = new Float32Array(48); v.set(VM.pack(shot.vm(lt, t))); st.vm = v; }
   if (shot.comp) shot.comp(st.comp, lt, t);
   if (shot.post) shot.post(st.post, lt, t);
   for (const cue of TL.cues) cue(st, t);

@@ -10,6 +10,15 @@ selva oscura"* (a dark forest). The teaser goes from the cold, misty forest (Act
 Gate of Hell and its inscription *"Lasciate ogne speranza, voi ch'intrate"*, down the nine
 circles (one circle per beat), to the beast, and lands the title on the final hit.
 
+## Two cuts
+- **v1** (`engine/index.html`, `engine/shots.js`) — cinematic third-person teaser.
+- **v2 — first-person cut** (`engine/index_v2.html`, `engine/shots_v2.js`) — same music and beat grid, with
+  first-person beats interleaved: walking the path with a lantern that really lights the trees, a look back
+  while running from the eyes, reading the inscription by lantern-light, the lantern slipping from your hand
+  into the abyss, your sword igniting and slashing across the beast. The FP layer is `engine/viewmodel.js`
+  (a screen-space SDF viewmodel: gloved hand + lantern, gauntlet + sword with fire trail, reaching hand,
+  motion-blurred branches) driven by head-bob camera rigs.
+
 ## Music edit
 Source: the uploaded track, 2:03.3–2:48 (135 BPM). The cue is three near-identical 8-bar
 phrases (A/B/C) plus a final hit. The edit keeps phrase **A** and splices straight into
@@ -32,6 +41,7 @@ phrase **C** on the bar line (musically identical to the original A→B join), g
 ## Render
 ```bash
 node tools/render.js out/frames 1 30 0 1        # <dir> <scale> <fps> <worker> <workers>
+PAGE=index_v2.html node tools/render.js out/frames_v2 1 30 0 1   # first-person cut
 tools/encode.sh out/frames out/SELVA_OSCURA_teaser.mp4
 node tools/preview.js /tmp/pv 0.5 1.0,7.9,29.6  # look-dev stills
 ```
@@ -40,3 +50,4 @@ node tools/preview.js /tmp/pv 0.5 1.0,7.9,29.6  # look-dev stills
 - `SELVA_OSCURA_teaser_1080p.mp4` — master, 1920×1080, 30 fps, H.264 ~30 Mbps, AAC 320k, 31.4 s
 - `SELVA_OSCURA_teaser_1080p_web.mp4` — web/portfolio upload, ~10 Mbps
 - `SELVA_OSCURA_keyframes.jpg`, `SELVA_OSCURA_poster.jpg` — stills for the portfolio page
+- `SELVA_OSCURA_v2_FP_*` — the first-person cut (same set of encodes + keyframes)

@@ -11,7 +11,7 @@ const fs = require('fs'), path = require('path');
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   page.on('console', m => { const s = m.text(); if (!s.includes('GPU stall')) console.log('[page]', s); });
   page.on('pageerror', e => console.log('[pageerror]', e.message));
-  await page.goto('file://' + path.resolve(__dirname, '../engine/index.html'));
+  await page.goto('file://' + path.resolve(__dirname, '../engine/' + (process.env.PAGE || 'index.html')));
   const info = await page.evaluate(s => init({ scale: s }), scale);
   console.log('init', JSON.stringify(info));
   for (const t of times) {
