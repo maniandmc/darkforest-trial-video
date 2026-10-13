@@ -20,7 +20,38 @@ export class Sound {
   }
 
   setMusic(level) { if (this.A) this.A.setMusic(level, this.ctx.currentTime); if (this.log) this.log.push({ t: this.clock(), name: '@music', o: { level } }); }
-  startAmbience() { if (this.A && !this.A.amb) this.A.amb = startAmbience(this.A, this.ctx.currentTime); }
+  startAmbience() {
+    if (this.log && !this.log.some(e => e.name === '@ambience')) this.log.push({ t: this.clock(), name: '@ambience', o: {} });
+    if (this.A && !this.A.amb) this.A.amb = startAmbience(this.A, this.ctx.currentTime);
+  }
+}
+
+// Re-synthesise a logged session (recorded gameplay) into a stereo buffer; returns 16-bit PCM WAV bytes.
+export async function renderOffline(log, duration, sr = 44100) {
+  const ctx = new OfflineAudioContext(2, Math.ceil(duration * sr), sr);
+  const A = buildGraph(ctx, ctx.destination);
+  const lv = log.filter(e => e.name === '@music');
+  for (const e of log) {
+    if (e.t > duration) continue;
+    if (e.name === '@ambience') startAmbience(A, e.t);
+    else if (RECIPES[e.name]) RECIPES[e.name](A, e.t + 0.005 + (e.o.delay || 0), e.o);
+  }
+  if (lv.length) {
+    const levelAt = t => { let l = 0; for (const e of lv) { if (e.t <= t) l = e.o.level; else break; } return l; };
+    for (const e of lv) A.music.gain.setTargetAtTime(e.o.level * 0.55, e.t, 0.8);
+    startDrums(A, lv[0].t, levelAt, duration);
+  }
+  const buf = await ctx.startRendering();
+  const n = buf.length, L = buf.getChannelData(0), R = buf.getChannelData(1);
+  const out = new DataView(new ArrayBuffer(44 + n * 4));
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) out.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); out.setUint32(16, 16, true);
+  out.setUint16(20, 1, true); out.setUint16(22, 2, true); out.setUint32(24, sr, true); out.setUint32(28, sr * 4, true);
+  out.setUint16(32, 4, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, n * 4, true);
+  for (let i = 0, o = 44; i < n; i++, o += 4) {
+    out.setInt16(o, Math.max(-1, Math.min(1, L[i])) * 32767, true); out.setInt16(o + 2, Math.max(-1, Math.min(1, R[i])) * 32767, true);
+  }
+  return new Uint8Array(out.buffer);
 }
 
 export function buildGraph(ctx, destination) {

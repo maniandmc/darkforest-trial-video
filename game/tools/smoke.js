@@ -8,7 +8,7 @@ const { chromium } = require('/opt/node22/lib/node_modules/playwright');
   page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs.push(m.type() + ': ' + m.text()); });
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));
   await page.goto(url || 'http://127.0.0.1:8765/index.html?test');
-  await page.waitForFunction(() => window.GAME, null, { timeout: 20000 });
+  await page.waitForFunction(() => window.GAME, null, { timeout: 20000 }); await page.waitForTimeout(3000);
   const t0 = Date.now();
   const info = await page.evaluate((n) => {
     const g = GAME; g.startFight();

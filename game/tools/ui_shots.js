@@ -7,7 +7,7 @@ const fs = require('fs');
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('http://127.0.0.1:8765/index.html?test');
-  await page.waitForFunction(() => window.GAME);
+  await page.waitForFunction(() => window.GAME); await page.waitForTimeout(3000);
   const step = (secs) => page.evaluate(s => { for (let i = 0; i < Math.round(s * 60); i++) GAME.tick(1 / 60); GAME.render(); }, secs);
   await page.evaluate(() => GAME.toTitle()); await step(2.0); await page.waitForTimeout(1300);
   await page.screenshot({ path: `${out}/1_title.png` });

@@ -1,13 +1,16 @@
 // Entry point. ?test exposes window.GAME and lets an automation script drive the clock.
 import { Game } from './game.js';
 import { Bot } from './bot.js';
+import { renderOffline } from './audio.js';
 
 const params = new URLSearchParams(location.search);
 const test = params.has('test');
 const canvas = document.getElementById('game');
-const game = new Game(canvas, { test, quality: params.get('q') || undefined, seed: +(params.get('seed') || 1234) });
+const game = new Game(canvas, { test, record: params.has('rec'), quality: params.get('q') || undefined, seed: +(params.get('seed') || 1234) });
+if (params.has('rec')) document.body.classList.add('rec');
 window.GAME = game;
 window.Bot = Bot;
+window.renderOffline = renderOffline;
 
 if (!test) {
   canvas.addEventListener('click', () => { if (game.state === 'fight') game.input.requestLock(); });

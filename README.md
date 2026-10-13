@@ -33,6 +33,11 @@ circles (one circle per beat), to the beast, and lands the title on the final hi
   - Thin-lens depth of field (`POST.dof`, scenes write view depth into alpha) for focus-pulled shots.
   - Materials: CC0 photo-scans from [Poly Haven](https://polyhaven.com) (`tools/fetch_assets.py`, `assets/tex/`).
 
+## The game (`game/`)
+**Dite** — a playable browser boss fight against the trailer's colossus (Three.js, no build step): title → skippable
+intro → three-phase fight → result/retry. See [`game/README.md`](game/README.md); run with
+`cd game && python3 -m http.server 8000`. Highlight reel: `out/DITE_gameplay_highlight.mp4`.
+
 ## Music edit
 Source: the uploaded track, 2:03.3–2:48 (135 BPM). The cue is three near-identical 8-bar
 phrases (A/B/C) plus a final hit. The edit keeps phrase **A** and splices straight into

@@ -1,6 +1,8 @@
 // Visual effects: pooled GPU particles (sparks, embers, dust), ground rings, lava/nova decals, blade trail, flash lights.
 import * as THREE from 'three';
-import { rand, randRange, lerp, clamp } from './math.js';
+import { lerp, clamp } from './math.js';
+// cosmetic randomness only — never touches the seeded gameplay RNG
+const rand = Math.random, randRange = (a, b) => a + (b - a) * Math.random();
 
 const PART_VS = `
 attribute float size; attribute vec4 col;
@@ -81,7 +83,7 @@ void main(){
     a = smoothstep(uW, 0.0, abs(d - uR)) * (0.6 + 0.4 * n2(vP * 2.0 + uT * 3.0));
   } else if (uMode < 1.5) {     // warning circle (lava / nova): bright rim, faint pulsing fill
     float rim = smoothstep(0.18, 0.0, abs(d - uR));
-    float fill = step(d, uR) * (0.18 + 0.12 * sin(uT * 12.0)) * smoothstep(0.0, uR, d + uR * 0.3);
+    float fill = step(d, uR) * (0.09 + 0.06 * sin(uT * 12.0)) * smoothstep(0.0, uR, d + uR * 0.3);
     a = rim + fill;
   } else {                      // molten pool
     float e = smoothstep(uR, uR - 0.5, d + (n2(vP * 1.3 + uT * 0.2) - 0.5) * 0.7);

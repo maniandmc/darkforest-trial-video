@@ -12,6 +12,8 @@ import { CameraRig } from './camera.js';
 import { HUD } from './hud.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
+import { Post } from './post.js';
+import { matTime } from './materials.js';
 import { seed, rand, randRange, clamp, lerp, ease } from './math.js';
 
 export const QUALITY = {
@@ -48,10 +50,12 @@ export class Game {
     this.hud = new HUD();
     this.fx = new FX(this.scene, this.quality);
     this.sound = new Sound();
+    if (opts.record) this.sound.unlock = () => {};                 // recorded sessions log sound and render it offline
     this.sound.clock = () => this.clock;
     this.time = 0; this.clock = 0; this.freeze = 0; this.slowmo = 0; this.locked = false; this.state = 'boot'; this.endAt = 0;
     this.ctx = { time: 0, camYaw: 0, locked: false, boss: this.boss, player: this.player, events: this.events, combat: this.combat };
     this.stats = {};
+    this.post = new Post(this.renderer, this.scene, this.camera);
     this.wire();
     this.applyQuality();
     this.resize();
@@ -246,6 +250,7 @@ export class Game {
     this.setScreen(null); this.hud.show(false); this.hud.showBoss(false);
     $('skip').classList.add('on');
     this.sound.play('rumble', { dur: 2.6 });
+    this.fx.decal(2, this.boss.pos, 5.5, { size: 6.2, life: 3.2, fadeOut: 1.5, y: 0.06 });
     this._introRoar = false;
   }
 
@@ -280,6 +285,8 @@ export class Game {
   tick(dt) {
     const inp = this.input.read();
     this.clock += dt;
+    matTime.value = this.clock;
+    this.ambient(dt);
     this.stateT = (this.stateT || 0) + dt;
     switch (this.state) {
       case 'title': this.tickTitle(dt, inp); break;
@@ -287,7 +294,37 @@ export class Game {
       case 'fight': case 'victory': case 'defeat': this.tickFight(dt, inp); break;
       case 'paused': if (inp.pause) this.resume(); break;
     }
+    if (this.opts.record) this.fadeUI(dt);
     this.input.endFrame();
+  }
+
+  // drifting embers and ash over the whole arena; the blade smoulders when it is swung
+  ambient(dt) {
+    const fx = this.fx, R = CFG.arenaRadius + 6, n = 26 * dt * this.quality.particles, rand = Math.random;
+    this._embAcc = (this._embAcc || 0) + n;
+    while (this._embAcc >= 1) {
+      this._embAcc -= 1;
+      const a = rand() * Math.PI * 2, r = Math.sqrt(rand()) * R;
+      fx.parts.spawn({ x: Math.sin(a) * r, y: rand() * 2, z: Math.cos(a) * r, vx: (rand() - 0.5) * 0.6, vy: 0.8 + rand() * 1.4, vz: (rand() - 0.5) * 0.6,
+        life: 3 + rand() * 4, age: 0, size: 0.04 + rand() * 0.06, r: 3.0, g: 1.1, b: 0.3, grav: -0.15, drag: 0.2, fade: 1, wobble: 1.6, seed: rand() * 9, fadeIn: 0.5 });
+    }
+    const p = this.player, a = p.atk;
+    let glow = 0.15;
+    if (p.state === 'attack' && a) {
+      const tA = a.d.windup, tB = tA + a.d.active;
+      glow = a.kind === 'heavy' ? (p.t < tA ? 0.4 + 2.2 * (p.t / tA) : p.t < tB ? 3 : 3 * Math.exp(-(p.t - tB) * 5)) : (p.t < tB ? 1.2 : 1.2 * Math.exp(-(p.t - tB) * 8));
+    }
+    this.mats.blade.emissiveIntensity = glow;
+  }
+
+  // recording: CSS transitions run on wall-clock time, so drive overlay fades from the game clock instead
+  fadeUI(dt) {
+    for (const el of document.querySelectorAll('.screen, #namecard, #hud, #bossbar, #skip')) {
+      const target = el.classList.contains('on') ? 1 : 0;
+      const cur = el._fade ?? target;
+      el._fade = target > cur ? Math.min(target, cur + dt / 0.9) : Math.max(target, cur - dt / 0.6);
+      el.style.opacity = el._fade.toFixed(3);
+    }
   }
 
   tickWorldPassive(dt) {
@@ -332,6 +369,7 @@ export class Game {
       fov = lerp(52, 46, u);
     }
     this.rig.apply(dt, pos, look, fov);
+    if (this.opts.record) { if (t >= INTRO_LEN) this.introDone = true; return; }     // the recorder starts the fight on a frame boundary
     if (((inp.enter || inp.roll) && t > 0.4) || t >= INTRO_LEN) this.startFight({ fromIntro: true });
   }
 

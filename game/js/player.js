@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { CFG } from './config.js';
 import { clamp, lerp, ease, approachAngle, wrapAngle, segSegDist } from './math.js';
+import { buildPlayerModel } from './playermodel.js';
 
 const P = CFG.player;
 const REST_ARM = { yaw: -0.3, pitch: 0.95, roll: 0.0 };
@@ -21,41 +22,8 @@ export class Player {
     this.body = new THREE.Group(); this.body.position.y = 0.55; this.root.add(this.body);
     const off = new THREE.Group(); off.position.y = -0.55; this.body.add(off); this.model = off;
 
-    const cloth = mats.cloak, dark = mats.playerDark;
-    const cloak = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.47, 1.28, 14, 3), cloth);
-    cloak.position.y = 0.66; off.add(cloak);
-    const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), cloth);
-    shoulders.scale.set(1.25, 0.75, 0.95); shoulders.position.y = 1.3; off.add(shoulders);
-    const hood = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), cloth);
-    hood.scale.set(1.0, 1.15, 1.12); hood.position.set(0, 1.52, -0.02); off.add(hood);
-    const peak = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.3, 10), cloth);
-    peak.position.set(0, 1.71, -0.1); peak.rotation.x = -0.5; off.add(peak);
-    const face = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 8), dark);
-    face.position.set(0, 1.5, 0.11); face.scale.set(1, 1.1, 0.6); off.add(face);
-    for (const m of [cloak, shoulders, hood, peak]) m.castShadow = true;
-    this.cloak = cloak;
-
-    const mkArm = (side) => {
-      const piv = new THREE.Group(); piv.rotation.order = 'YXZ';
-      piv.position.set(-0.27 * side, 1.29, 0.04); off.add(piv);
-      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.36, 4, 8), cloth);
-      arm.rotation.x = Math.PI / 2; arm.position.z = 0.22; arm.castShadow = true; piv.add(arm);
-      return piv;
-    };
-    this.armR = mkArm(1); this.armL = mkArm(-1);
-
-    // sword along local +z of the right arm pivot
-    const sword = new THREE.Group(); sword.position.z = 0.46; this.armR.add(sword); this.sword = sword;
-    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.22, 8), dark);
-    grip.rotation.x = Math.PI / 2; sword.add(grip);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.045, 0.05), mats.steel);
-    guard.position.z = 0.12; sword.add(guard);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.018, 1.18), mats.blade);
-    blade.position.z = 0.73; blade.castShadow = true; sword.add(blade);
-    this.blade = blade;
-    // flask in the left hand (shown while healing)
-    const flask = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), mats.flask);
-    flask.position.z = 0.48; flask.visible = false; this.armL.add(flask); this.flask = flask;
+    const P_ = buildPlayerModel(off, mats);
+    Object.assign(this, { cloak: P_.cloak, armR: P_.armR, armL: P_.armL, sword: P_.sword, blade: P_.blade, flask: P_.flask, lantern: P_.lantern, tail: P_.tail });
 
     scene.add(this.root);
     this.hilt = new THREE.Vector3(); this.tip = new THREE.Vector3();
@@ -310,13 +278,17 @@ export class Player {
     this.body.rotation.set(bodyPitch + spin, 0, bodyRoll);
     this.armR.rotation.set(this.arm.pitch, this.arm.yaw, this.arm.roll);
     this.armL.rotation.set(this.armLp.pitch, this.armLp.yaw, this.armLp.roll);
-    this.cloak.scale.set(1 + 0.05 * Math.min(this.moving / 5, 1), 1, 1 + 0.08 * Math.min(this.moving / 5, 1));
+    const mv = Math.min(this.moving / 5, 1);
+    this.cloak.scale.set(1 + 0.05 * mv, 1, 1 + 0.08 * mv);
+    // lantern and sash tail swing with motion
+    this.lanSwing = lerp(this.lanSwing || 0, -mv * 0.5 + Math.sin(this.bob * 2) * 0.12 * mv, 1 - Math.exp(-6 * dt));
+    this.lantern.rotation.x = this.lanSwing; this.tail.rotation.x = 0.15 + mv * 0.6 + Math.sin(this.bob * 2 + 1) * 0.1;
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 3);
 
     this.prevHilt.copy(this.hilt); this.prevTip.copy(this.tip);
     this.root.updateMatrixWorld(true);
-    this.hilt.set(0, 0, 0.14); this.sword.localToWorld(this.hilt);
-    this.tip.set(0, 0, this.atk && this.atk.kind === 'heavy' ? 1.45 : 1.32); this.sword.localToWorld(this.tip);
+    this.hilt.set(0, 0, 0.16); this.sword.localToWorld(this.hilt);
+    this.tip.set(0, 0, this.atk && this.atk.kind === 'heavy' ? 1.5 : 1.37); this.sword.localToWorld(this.tip);
     if (!this.swordPrimed) { this.prevHilt.copy(this.hilt); this.prevTip.copy(this.tip); this.swordPrimed = true; }
   }
 

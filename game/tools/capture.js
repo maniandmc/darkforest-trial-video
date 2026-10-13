@@ -8,7 +8,7 @@ const fs = require('fs');
   const page = await browser.newPage({ viewport: { width: +(wS || 1280), height: +(hS || 720) } });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('http://127.0.0.1:8765/index.html?test');
-  await page.waitForFunction(() => window.GAME && window.Bot);
+  await page.waitForFunction(() => window.GAME && window.Bot); await page.waitForTimeout(3000);
   const wanted = (labelsS || 'slam-windup,slam-impact,sweep-active,stomp-windup,charge-active,hit-boss,stagger,end').split(',');
   await page.evaluate(({ seed, skill, wanted }) => {
     const g = GAME; g.opts.seed = seed; g.startFight();
