@@ -7,6 +7,7 @@ export class Input {
     this.mouseDX = 0; this.mouseDY = 0;
     this.sens = 0.0024;
     this.locked = false;
+    this.free = false;             // pointer lock refused (embedded frames): read the mouse without capturing it
     this.virtual = null;           // when set (bot / tests) it replaces live input
     this.enabled = true;
 
@@ -18,13 +19,13 @@ export class Input {
     addEventListener('keyup', e => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
     canvas.addEventListener('mousedown', e => {
-      if (!this.locked) return;
+      if (!this.locked && !this.free) return;
       this.pressed.add('Mouse' + e.button); this.keys.add('Mouse' + e.button);
     });
     addEventListener('mouseup', e => this.keys.delete('Mouse' + e.button));
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mousemove', e => {
-      if (!this.locked) return;
+      if (!this.locked && !this.free) return;
       this.mouseDX += e.movementX; this.mouseDY += e.movementY;
     });
     document.addEventListener('pointerlockchange', () => {
@@ -35,8 +36,12 @@ export class Input {
 
   requestLock() {
     if (this.virtual || this.locked) return;
-    const p = this.canvas.requestPointerLock?.();
-    if (p && p.catch) p.catch(() => {});
+    if (!this.canvas.requestPointerLock) { this.free = true; return; }
+    try {
+      const p = this.canvas.requestPointerLock();
+      if (p && p.catch) p.catch(() => { this.free = true; });
+    } catch (e) { this.free = true; }
+    document.addEventListener('pointerlockerror', () => { this.free = true; }, { once: true });
   }
 
   // Snapshot of actions for this frame
