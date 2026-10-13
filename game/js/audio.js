@@ -30,6 +30,7 @@ export class Sound {
 export async function renderOffline(log, duration, sr = 44100) {
   const ctx = new OfflineAudioContext(2, Math.ceil(duration * sr), sr);
   const A = buildGraph(ctx, ctx.destination);
+  log = log.map(e => ({ ...e, t: Math.max(0, e.t) }));
   const lv = log.filter(e => e.name === '@music');
   for (const e of log) {
     if (e.t > duration) continue;

@@ -76,10 +76,11 @@ const fs = require('fs'), path = require('path');
   console.log(`session ${T.toFixed(1)} s, result ${plan.result}; highlight ${total.toFixed(1)} s in ${merged.length} cuts`);
   console.log(JSON.stringify(merged.map(w => w.map(x => +x.toFixed(2)))));
 
-  // ---- pass 2: replay, render only highlight frames
-  await page.evaluate(() => __sess.start());
+  // ---- pass 2: replay, render only highlight frames (--audio-only: skip; the frames already exist)
+  const audioOnly = process.argv.includes('--audio-only');
+  if (!audioOnly) await page.evaluate(() => __sess.start());
   let k = 0; const t0 = Date.now(); const kept = [];
-  for (let f = 0; f < plan.frames; f++) {
+  for (let f = 0; f < (audioOnly ? 0 : plan.frames); f++) {
     const want = inWin(f);
     await page.evaluate((r) => __sess.step(r), want);
     if (want) {

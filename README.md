@@ -36,7 +36,7 @@ circles (one circle per beat), to the beast, and lands the title on the final hi
 ## The game (`game/`)
 **Dite** — a playable browser boss fight against the trailer's colossus (Three.js, no build step): title → skippable
 intro → three-phase fight → result/retry. See [`game/README.md`](game/README.md); run with
-`cd game && python3 -m http.server 8000`. Highlight reel: `out/DITE_gameplay_highlight.mp4`.
+`cd game && python3 -m http.server 8000`. Highlight reel (bot-played, 56 s): `out/DITE_gameplay_highlight_web.mp4`.
 
 ## Music edit
 Source: the uploaded track, 2:03.3–2:48 (135 BPM). The cue is three near-identical 8-bar
