@@ -11,6 +11,10 @@ export const WALK = { ...GUARD, hipY: -0.015, lean: 0.05, side: 0, twist: 0, cB:
 // lantern lifted forward to light the dark ahead; the body opens toward it
 export const RAISE = { lY: 0.12, lP: -0.32, lR: 0.08, lE: 0.22, cT: -0.16, cS: 0.05, cB: -0.03, lean: -0.01, hP: -0.1, rP: 1.48, rE: 0.2 };
 
+// arms flung out, tumbling through the air (spinX is set by the shot)
+export const FALL = { hipY: 0, lean: -0.25, side: 0, twist: 0.1, cB: -0.3, cT: 0.1, cS: 0, hP: -0.35, hY: 0,
+  rY: -1.25, rP: -0.15, rR: 0.2, rE: 0.5, rWp: 0.4, rWy: 0, lY: 1.25, lP: -0.25, lR: 0, lE: 0.45, lIK: 0, fb: 1, tuck: 0.3, spinX: 0, spinY: 0 };
+
 const mixIn = (o, P, k) => { for (const c in P) o[c] += (P[c] - o[c]) * k; };
 
 export class Puppet {
@@ -20,8 +24,14 @@ export class Puppet {
   }
 
   pose(o, s) {
+    const d = this.d;
+    if (this.mode === 'game' || d.game) {                  // the game's own locomotion (runs, sprints); only the gaze is directed
+      if (s === 'idle' || s === 'move') { o.hY += d.lookY; o.cT += d.lookY * 0.35; o.hP += d.lookP; }
+      return;
+    }
     if (s !== 'idle' && s !== 'move') return;
-    const A = this.p.anim, d = this.d, m = A.moveW, ph = A.phase * TAU, k = d.raise;
+    if (d.fall > 0) { mixIn(o, FALL, 1); o.spinX = d.spin || 0; o.spinY = d.spinY || 0; o.lP += 0.5 * Math.sin(this.p.anim.clock * 9); o.rP += 0.5 * Math.sin(this.p.anim.clock * 8 + 1); return; }
+    const A = this.p.anim, m = A.moveW, ph = A.phase * TAU, k = d.raise;
     const sw = Math.cos(ph), bob = -Math.cos(2 * ph - 0.5);
     for (const c in WALK) o[c] = WALK[c];
     o.hipY += m * (0.024 * bob - 0.012);
@@ -39,17 +49,20 @@ export class Puppet {
   step(dt, a, ctx) {
     const p = this.p;
     if (dt > 0) p.vel.set((a.x - p.pos.x) / dt, 0, (a.z - p.pos.z) / dt);
-    p.pos.set(a.x, groundH(a.x, a.z), a.z);
+    p.pos.set(a.x, a.y ?? groundH(a.x, a.z), a.z);
     p.yaw = a.yaw; p.t += dt;
-    p.state = Math.hypot(p.vel.x, p.vel.z) > 0.05 ? 'move' : 'idle';
+    p.sprinting = !!a.sprint;
+    if (a.state) { if (p.state !== a.state) p.setState(a.state); p.t = a.stateT ?? p.t; }
+    else p.state = Math.hypot(p.vel.x, p.vel.z) > 0.05 ? 'move' : 'idle';
     this.d.raise = a.raise || 0; this.d.lookY = a.lookY || 0; this.d.lookP = a.lookP || 0;
+    this.d.fall = a.fall || 0; this.d.spin = a.spin || 0; this.d.spinY = a.spinY || 0; this.d.game = !!a.game;
     p.animate(dt, ctx);
   }
 
   // jump to a pose without history (start of a shot)
   place(a) {
     const p = this.p;
-    p.pos.set(a.x, groundH(a.x, a.z), a.z); p.vel.set(0, 0, 0); p.yaw = a.yaw; p.state = 'idle'; p.t = 0;
+    p.pos.set(a.x, a.y ?? groundH(a.x, a.z), a.z); p.vel.set(0, 0, 0); p.yaw = a.yaw; p.state = 'idle'; p.t = 0; p.atk = null;
     p.anim.reset();
   }
 }

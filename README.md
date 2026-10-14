@@ -33,19 +33,30 @@ circles (one circle per beat), to the beast, and lands the title on the final hi
   - Thin-lens depth of field (`POST.dof`, scenes write view depth into alpha) for focus-pulled shots.
   - Materials: CC0 photo-scans from [Poly Haven](https://polyhaven.com) (`tools/fetch_assets.py`, `assets/tex/`).
 
-- **v4 — rendered from the game's 3D models (in progress)** (`game/trailer.html`, `game/js/trailer/`) — the trailer
-  re-shot with the real meshes and rig of the game instead of raymarched stand-ins, in Three.js:
-  - `forest.js` — the dark forest as geometry: flared, buttressed trunks with broken branches (two levels of detail),
-    a foliage canopy the moon shines through, leaf litter and a trodden mud path, ferns, rocks, fallen logs.
-  - `pipeline.js` — offline render pipeline: HDR + MSAA scene, the moon's depth from its side, **volumetric fog**
-    (a jittered half-res march that in-scatters moonlight wherever the moon's depth map lets it through — real light
-    shafts cut by the trunks and canopy), the lantern's halo in closed form, depth of field, bloom, grade, letterbox.
-  - `puppet.js` — directs the game's wanderer (the same procedural animator: stride IK, cloak, pendulum lantern) along
-    a path, with trailer-only poses: a wary walk and the lantern lifted into the dark. The lantern now hangs from the
-    left fist and its light casts shadows; the model is built at a higher detail level for close-ups (cloth sheen,
-    a rim light, hood folds, glass and cap on the lantern).
-  - First test: the forest opening (bars 0–4) — `out/SELVA_OSCURA_v4_forest_test.mp4`. Render:
-    `python3 -m http.server 8766` from the repo root, then `node game/tools/trailer.js <outDir> [f0] [f1]`.
+- **v4 — rendered from the game's own 3D models** (`game/trailer.html`, `game/js/trailer/`) — the whole teaser re-shot
+  in Three.js with the real meshes, rig and combat of the game instead of raymarched stand-ins; same music, beat grid
+  and typography as v1–v3 (v3's `type.js` / `texts.js` are loaded as-is and composited as an overlay):
+  - Sets: `forest.js` (flared, buttressed trunks in two levels of detail, a foliage canopy the moon shines through,
+    leaf litter and a trodden mud path, ferns, rocks, logs), `gate.js` (cliff, carved facade with a pointed portal
+    whose archivolts recede in steps, jamb colonnettes, an inscription that burns letter by letter, stairs, fire down
+    the passage, two 17 m guardians carved from the wanderer's own model), `descent.js` (nine terraced circles with
+    smouldering lips, the ninth of ice), and the game's arena.
+  - `pipeline.js` — offline render pipeline: HDR + MSAA scene, the key light's depth from its side, **volumetric fog**
+    (a jittered half-res march in-scattering the key light wherever its depth map lets it through — moon shafts cut by
+    the trunks; at the gate the key sits behind the cliff, so light pours out of the door only), the lantern's halo
+    in closed form, depth of field, v3's overlay layer (typography with its effects, screen-space embers / ash / dust,
+    zoom blur, flashes), bloom, grade, letterbox.
+  - `puppet.js` — directs the game's wanderer (the same procedural animator) along paths, with trailer-only poses:
+    a wary walk, the lantern lifted into the dark, the tumble through the pit; the lantern hangs from the left fist,
+    lights and shadows the set, and slips away in the fall. Close-up build: smoother cloak and hood, cloth sheen,
+    rim light, a dressed lantern.
+  - `stage.js` — the fight shots run the game's real Player / Boss / Combat / FX, wired by borrowing
+    `Game.prototype.wire` (sparks, shock rings, lava pools, the nova, hit-stop, shake). `shots.js` scripts them on the
+    beat: the slam lands on bar 13, the nova blasts on ABANDON.
+  - Render: `python3 -m http.server 8766` from the repo root, then `node game/tools/trailer.js <outDir> [f0] [f1]`
+    (`tools/trailer_look.js` for look-dev stills). About 3–7 s per 1080p frame in software WebGL.
+  - `out/SELVA_OSCURA_v4_1080p.mp4` (+ `_web`), `out/SELVA_OSCURA_v4_keyframes.jpg`; the earlier forest-only test is
+    `out/SELVA_OSCURA_v4_forest_test.mp4`.
 
 ## The game (`game/`)
 **Dite** — a playable browser boss fight against the trailer's colossus (Three.js, no build step): title → skippable

@@ -167,12 +167,115 @@ void main(){
   gl_FragColor = vec4(c, 1.0);
 }`;
 
+
+// v3's overlay layer, ported: zoom blur, screen-space embers / ash / dust, the graphic layer and the typography (with
+// its glow, burn-dissolve, glitch and bevel effects), flash and exposure. Runs in linear HDR before bloom, like v3.
+const OVER_FS = /* glsl */`
+precision highp float;
+uniform sampler2D tColor, uTxt, uGfx;
+uniform vec2 uRes; uniform float uTime, uExposure;
+uniform vec4 uZoomBlur, uEmber, uEmberC, uAsh, uDust, uTxtFx, uTxtFx2, uGfxFx, uFlash;
+uniform vec2 uPartC;
+varying vec2 vUv;
+#define TAU 6.28318530718
+float sat(float x){ return clamp(x,0.0,1.0); }
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
+vec3 hash32(vec2 p){ vec3 p3=fract(vec3(p.xyx)*vec3(.1031,.1030,.0973)); p3+=dot(p3,p3.yxz+33.33); return fract((p3.xxy+p3.yzz)*p3.zyx); }
+float noise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.0-2.0*f); return mix(mix(hash12(i),hash12(i+vec2(1,0)),u.x), mix(hash12(i+vec2(0,1)),hash12(i+vec2(1,1)),u.x), u.y); }
+float fbm(vec2 p, int oct){ float s=0.0, a=0.5; mat2 m=mat2(1.6,1.2,-1.2,1.6); for(int i=0;i<8;i++){ if(i>=oct) break; s+=a*noise(p); p=m*p+3.1; a*=0.5; } return s; }
+float sdSeg2(vec2 p, vec2 a, vec2 b){ vec2 pa=p-a, ba=b-a; float h=sat(dot(pa,ba)/dot(ba,ba)); return length(pa-ba*h); }
+vec3 emberLayer(vec2 uv, float t, float L, float amt){
+  float depth=1.0+L*0.9; float sc=4.0*depth; vec2 p=uv*sc; float spd=uEmber.y/depth; vec2 vel;
+  if(uEmber.w<0.5){ vel=vec2(0.25*sin(L*3.1),1.0); } else if(uEmber.w<2.5 && uEmber.w>1.5){ vel=vec2(0.15,-1.0); } else if(uEmber.w>2.5){ vel=vec2(1.0,0.35); } else { vel=vec2(0.0,1.0); }
+  p-=vel*t*spd*sc*0.35; p.x+=sin(p.y*0.6+t*0.9+L*4.0)*0.35;
+  vec2 cid=floor(p); vec2 f=fract(p)-0.5; vec3 h=hash32(cid+L*31.7);
+  if(h.z>amt) return vec3(0.0);
+  vec2 pos=(h.xy-0.5)*0.6; pos+=vec2(sin(t*2.3+h.x*20.0),cos(t*1.7+h.y*20.0))*0.06;
+  vec2 v=normalize(vel)*0.10*spd*uEmber.z; float d=sdSeg2(f,pos,pos-v);
+  float sz=uEmber.z*mix(0.018,0.045,h.x); float core=smoothstep(sz,0.0,d); float glow=exp(-d*d/(sz*sz*9.0))*0.35;
+  float fl=0.55+0.45*sin(t*(6.0+h.y*10.0)+h.x*40.0);
+  vec3 c=mix(vec3(1.0,0.35,0.06),vec3(1.0,0.75,0.35),h.y)*uEmberC.rgb;
+  return c*(core*2.2+glow)*fl/(0.6+L*0.4);
+}
+vec3 emberRadial(vec2 uv, float t, float L, float amt){
+  vec2 q=(uv-uPartC); float r=length(q); float a=atan(q.y,q.x); float lr=log(r+1e-3);
+  vec2 p=vec2(a/TAU*28.0*(1.0+L*0.5), lr*6.0 - t*uEmber.y*(1.0+L*0.4));
+  vec2 cid=floor(p); vec2 f=fract(p)-0.5; vec3 h=hash32(cid+L*13.1);
+  if(h.z>amt) return vec3(0.0);
+  vec2 pos=(h.xy-0.5)*0.5; float d=sdSeg2(f,pos,pos-vec2(0.0,0.9*uEmber.z)); float sz=0.05*(1.0+h.x)*uEmber.z;
+  float b=smoothstep(sz,0.0,d)*sat(r*3.0)*smoothstep(1.4,0.3,r);
+  vec3 c=mix(vec3(1.0,0.32,0.05),vec3(1.0,0.7,0.3),h.y)*uEmberC.rgb;
+  return c*b*1.8;
+}
+vec3 ashLayer(vec2 uv, float t, float L){
+  float depth=1.0+L*1.1; vec2 p=uv*5.0*depth; p.y+=t*uAsh.y*1.6; p.x-=t*uAsh.w*1.6; p.x+=sin(p.y*0.8+t+L)*0.3;
+  vec2 cid=floor(p); vec2 f=fract(p)-0.5; vec3 h=hash32(cid+L*7.3+40.0);
+  if(h.z>uAsh.x) return vec3(0.0);
+  vec2 pos=(h.xy-0.5)*0.6; float ang=t*(1.0+h.x*3.0)+h.y*6.0; vec2 g=rot(ang)*(f-pos);
+  float d=length(g*vec2(1.0,2.5+2.0*h.x)); float sz=uAsh.z*mix(0.02,0.05,h.y); float b=smoothstep(sz,sz*0.3,d);
+  return vec3(0.55,0.5,0.47)*b*(0.25+0.4*h.x)/(0.7+L*0.4);
+}
+vec3 dustLayer(vec2 uv, float t, float L){
+  float depth=1.0+L*1.3; vec2 p=uv*3.0*depth; p+=vec2(sin(t*0.13+L),cos(t*0.11+L))*0.5 + vec2(0.05,0.03)*t*uDust.y;
+  vec2 cid=floor(p); vec2 f=fract(p)-0.5; vec3 h=hash32(cid+L*3.9+90.0);
+  if(h.z>uDust.x) return vec3(0.0);
+  vec2 pos=(h.xy-0.5)*0.6+vec2(sin(t*0.7+h.x*9.0),cos(t*0.5+h.y*9.0))*0.08; float d=length(f-pos);
+  float sz=uDust.z*mix(0.01,0.03,h.x)*(L>1.5?3.0:1.0); float b=smoothstep(sz,0.0,d)*(L>1.5?0.25:1.0);
+  float tw=0.5+0.5*sin(t*3.0+h.y*30.0);
+  return vec3(0.8,0.88,1.0)*b*tw*uDust.w;
+}
+vec4 txtSample(vec2 uv){
+  vec4 c=texture2D(uTxt,uv);
+  if(uTxtFx2.y>0.0){ vec2 o=vec2(uTxtFx2.y/uRes.x,0.0); float r=texture2D(uTxt,uv+o).r, b=texture2D(uTxt,uv-o).b;
+    c.r=max(c.r,r); c.b=max(c.b,b); c.a=max(c.a,max(texture2D(uTxt,uv+o).a,texture2D(uTxt,uv-o).a)*0.8); }
+  return c;
+}
+void main(){
+  vec2 uv=vUv; vec2 asp=vec2(uRes.x/uRes.y,1.0);
+  vec3 col;
+  if(uZoomBlur.z<=0.0001) col=texture2D(tColor,uv).rgb;
+  else { vec3 acc=vec3(0.0); vec2 c=uZoomBlur.xy; float j=hash12(uv*uRes);
+    for(int i=0;i<16;i++){ float f=(float(i)+j)/16.0; acc+=texture2D(tColor, c+(uv-c)*(1.0-uZoomBlur.z*f)).rgb; } col=acc/16.0; }
+  col*=uExposure;
+  vec2 pu=(uv-0.5)*asp; float t=uTime; vec3 part=vec3(0.0);
+  if(uEmber.x>0.0){
+    if(uEmber.w>0.5 && uEmber.w<1.5){ for(int L=0;L<3;L++) part+=emberRadial(uv*asp,t,float(L),uEmber.x); }
+    else { for(int L=0;L<4;L++) part+=emberLayer(pu,t,float(L),uEmber.x); }
+    if(uEmberC.a>0.0){ vec2 p=pu*1.6; p.y-=t*uEmber.y*0.5; vec2 cid=floor(p); vec2 f=fract(p)-0.5; vec3 h=hash32(cid+77.0);
+      if(h.z<uEmberC.a){ float d=length(f-(h.xy-0.5)*0.5); part+=vec3(1.0,0.4,0.1)*smoothstep(0.09,0.05,d)*0.25*(0.5+0.5*sin(t*3.0+h.x*9.0)); } }
+  }
+  if(uAsh.x>0.0){ for(int L=0;L<3;L++) part+=ashLayer(pu,t,float(L)); }
+  if(uDust.x>0.0){ for(int L=0;L<3;L++) part+=dustLayer(pu,t,float(L)); }
+  col+=part;
+  vec2 gu=uv;
+  if(uGfxFx.y>0.0){ float r=floor(gu.y*90.0); float h=hash12(vec2(r,floor(uTime*24.0))); gu.x+=(h>0.8?(h-0.9)*uGfxFx.y:0.0); }
+  vec4 g=texture2D(uGfx,gu);
+  col=col*(1.0-g.a)+g.rgb*uGfxFx.x;
+  vec2 tu=uv;
+  if(uTxtFx.z>0.0){ float rows=40.0; float r=floor(tu.y*rows+uTxtFx2.w*7.0); float h=hash12(vec2(r,floor(uTime*30.0)+uTxtFx2.w)); tu.x+=(h>0.55?(h-0.75)*0.18*uTxtFx.z:0.0); }
+  vec4 tx=txtSample(tu);
+  if(uTxtFx.y>0.0){ float n=fbm(tu*asp*9.0+uTxtFx2.w,4); float th=uTxtFx.y*1.15-0.08; float keep=smoothstep(th,th+0.05,n);
+    float edge=smoothstep(th-0.02,th+0.02,n)-keep; vec3 ec=vec3(3.0,1.1,0.25)*edge*tx.a*uTxtFx2.z; tx*=keep; col+=ec; }
+  if(uTxtFx.w>0.0){ vec2 px=1.6/uRes;
+    float hL=texture2D(uTxt,tu-vec2(px.x,0)).a, hR=texture2D(uTxt,tu+vec2(px.x,0)).a, hD=texture2D(uTxt,tu-vec2(0,px.y)).a, hU=texture2D(uTxt,tu+vec2(0,px.y)).a;
+    vec3 n=normalize(vec3((hL-hR)*2.2,(hD-hU)*2.2,1.0)); vec3 Ld=normalize(vec3(-0.4,0.7,0.6));
+    float diff=max(dot(n,Ld),0.0); float spec=pow(max(dot(reflect(-Ld,n),vec3(0,0,1)),0.0),24.0);
+    float sweep=exp(-pow((tu.x*asp.x - tu.y*0.6 - uTxtFx2.x)*5.0,2.0));
+    vec3 metal=tx.rgb*(0.35+0.85*diff) + vec3(1.0,0.86,0.62)*spec*tx.a*0.9 + vec3(1.6,1.25,0.8)*sweep*tx.a*(0.4+spec*2.0);
+    tx.rgb=mix(tx.rgb,metal,uTxtFx.w); }
+  col=col*(1.0-tx.a)+tx.rgb*uTxtFx.x;
+  col+=uFlash.rgb*uFlash.a;
+  gl_FragColor=vec4(max(col,0.0),1.0);
+}`;
+
 export class Pipeline {
   constructor(renderer, W, H) {
     this.r = renderer; this.W = W; this.H = H;
     const HF = THREE.HalfFloatType;
     this.rtMain = new THREE.WebGLRenderTarget(W, H, { type: HF, samples: 4, depthTexture: new THREE.DepthTexture(W, H, THREE.UnsignedIntType) });
     this.rtComp = new THREE.WebGLRenderTarget(W, H, { type: HF });
+    this.rtOver = new THREE.WebGLRenderTarget(W, H, { type: HF });
     this.fw = W >> 1; this.fh = H >> 1;
     this.rtFog = new THREE.WebGLRenderTarget(this.fw, this.fh, { type: HF, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
     const MS = 1024;
@@ -192,9 +295,18 @@ export class Pipeline {
         uLanDens: 0, uDensity: 0, uHeight: 0, uGround: 0, uGroundH: 0, uMaxD: 90, uRes: new THREE.Vector2(W, H), uFogRes: new THREE.Vector2(this.fw, this.fh),
         uDof: new THREE.Vector4(5, 0, 12, 0), uNF: new THREE.Vector2(0.05, 400), uCamFwd: new THREE.Vector3() }) });
     this.grade = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: GRADE_FS, depthTest: false, depthWrite: false,
-      uniforms: U({ tColor: this.rtComp.texture, uRes: new THREE.Vector2(W, H), uExposure: 1, uSat: 1, uVig: 0.5, uGrain: 0.04, uCA: 0.004, uTime: 0,
+      uniforms: U({ tColor: this.rtOver.texture, uRes: new THREE.Vector2(W, H), uExposure: 1, uSat: 1, uVig: 0.5, uGrain: 0.04, uCA: 0.004, uTime: 0,
         uBars: 0.25, uFade: 1, uContrast: 0.1, uLift: new THREE.Color(0.2, 0.3, 0.45), uGain: new THREE.Color(1, 1, 1), uFlash: new THREE.Color(1, 1, 1), uFlashA: 0,
         uShadowTint: new THREE.Color(0.85, 0.95, 1.15), uHiTint: new THREE.Color(1.05, 1.0, 0.95) }) });
+    // the typography and graphic layers are 2D canvases drawn by v3's texts.js each frame
+    const layer = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; const t = new THREE.CanvasTexture(c);
+      t.premultiplyAlpha = true; t.colorSpace = THREE.NoColorSpace; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; return { c, ctx: c.getContext('2d'), t }; };
+    this.txt = layer(); this.gfx = layer();
+    const V4 = (...a) => new THREE.Vector4(...a);
+    this.over = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: OVER_FS, depthTest: false, depthWrite: false,
+      uniforms: U({ tColor: this.rtComp.texture, uTxt: this.txt.t, uGfx: this.gfx.t, uRes: new THREE.Vector2(W, H), uTime: 0, uExposure: 1,
+        uZoomBlur: V4(0.5, 0.5, 0, 0), uEmber: V4(0, 0.6, 1, 0), uEmberC: V4(1, 1, 1, 0), uAsh: V4(0, 0.3, 1, 0.1), uDust: V4(0, 0.2, 1, 1),
+        uTxtFx: V4(1, 0, 0, 0), uTxtFx2: V4(0, 0, 1, 0), uGfxFx: V4(1, 0, 0, 0), uFlash: V4(1, 1, 1, 0), uPartC: new THREE.Vector2(0.5, 0.5) }) });
     this.quad = new FullScreenQuad(null);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.6, 0.6, 0.9);
   }
@@ -243,10 +355,19 @@ export class Pipeline {
     if (o.dof) cu.uDof.value.set(o.dof.focus, o.dof.aperture, o.dof.max ?? 12, 1); else cu.uDof.value.w = 0;
     this.quad.material = this.comp; r.setRenderTarget(this.rtComp); this.quad.render(r);
     mark('comp+dof');
-    // bloom (added into rtComp)
+    // overlay: particles, graphics, type, flash (v3's comp stage)
+    const ou = this.over.uniforms, cp = o.comp || {};
+    ou.uTime.value = o.time; ou.uExposure.value = cp.exposure ?? 1;
+    for (const [k, n] of [['zoomBlur', 'uZoomBlur'], ['ember', 'uEmber'], ['emberC', 'uEmberC'], ['ash', 'uAsh'], ['dust', 'uDust'], ['txtFx', 'uTxtFx'], ['txtFx2', 'uTxtFx2'], ['gfxFx', 'uGfxFx'], ['flash', 'uFlash']])
+      ou[n].value.set(...(cp[k] || ou[n].value.toArray()));
+    if (cp.partC) ou.uPartC.value.set(...cp.partC);
+    this.txt.t.needsUpdate = true; this.gfx.t.needsUpdate = true;
+    this.quad.material = this.over; r.setRenderTarget(this.rtOver); this.quad.render(r);
+    mark('overlay');
+    // bloom (added into rtOver)
     const b = o.bloom || [0.6, 0.6, 0.9];
     this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2];
-    this.bloom.render(r, null, this.rtComp, 0, false);
+    this.bloom.render(r, null, this.rtOver, 0, false);
     mark('bloom');
     // grade → screen
     const g = o.grade || {};
