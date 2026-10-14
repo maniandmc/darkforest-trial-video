@@ -11,7 +11,7 @@ selva oscura"* (a dark forest). The teaser goes from the cold, misty forest (Act
 Gate of Hell and its inscription *"Lasciate ogne speranza, voi ch'intrate"*, down the nine
 circles (one circle per beat), to the beast, and lands the title on the final hit.
 
-## Two cuts
+## Cuts
 - **v1** (`engine/index.html`, `engine/shots.js`) — cinematic third-person teaser.
 - **v2 — first-person cut** (`engine/index_v2.html`, `engine/shots_v2.js`) — same music and beat grid, with
   first-person beats interleaved: walking the path with a lantern that really lights the trees, a look back
@@ -32,6 +32,20 @@ circles (one circle per beat), to the beast, and lands the title on the final hi
     from below with soft shadows, fire-wall rim, foreground flames, a 3D hooded hero with a flaming sword.
   - Thin-lens depth of field (`POST.dof`, scenes write view depth into alpha) for focus-pulled shots.
   - Materials: CC0 photo-scans from [Poly Haven](https://polyhaven.com) (`tools/fetch_assets.py`, `assets/tex/`).
+
+- **v4 — rendered from the game's 3D models (in progress)** (`game/trailer.html`, `game/js/trailer/`) — the trailer
+  re-shot with the real meshes and rig of the game instead of raymarched stand-ins, in Three.js:
+  - `forest.js` — the dark forest as geometry: flared, buttressed trunks with broken branches (two levels of detail),
+    a foliage canopy the moon shines through, leaf litter and a trodden mud path, ferns, rocks, fallen logs.
+  - `pipeline.js` — offline render pipeline: HDR + MSAA scene, the moon's depth from its side, **volumetric fog**
+    (a jittered half-res march that in-scatters moonlight wherever the moon's depth map lets it through — real light
+    shafts cut by the trunks and canopy), the lantern's halo in closed form, depth of field, bloom, grade, letterbox.
+  - `puppet.js` — directs the game's wanderer (the same procedural animator: stride IK, cloak, pendulum lantern) along
+    a path, with trailer-only poses: a wary walk and the lantern lifted into the dark. The lantern now hangs from the
+    left fist and its light casts shadows; the model is built at a higher detail level for close-ups (cloth sheen,
+    a rim light, hood folds, glass and cap on the lantern).
+  - First test: the forest opening (bars 0–4) — `out/SELVA_OSCURA_v4_forest_test.mp4`. Render:
+    `python3 -m http.server 8766` from the repo root, then `node game/tools/trailer.js <outDir> [f0] [f1]`.
 
 ## The game (`game/`)
 **Dite** — a playable browser boss fight against the trailer's colossus (Three.js, no build step): title → skippable

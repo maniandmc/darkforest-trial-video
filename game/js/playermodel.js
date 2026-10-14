@@ -12,8 +12,10 @@ export const RIG = {
   hipX: 0.12, hipJ: 0.64, thigh: 0.31, shin: 0.3, ankle: 0.085,
 };
 
-function latheCloak(profile, seg, folds, foldAmp, hemRag, seed) {
-  const g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+function latheCloak(profile, seg, folds, foldAmp, hemRag, seed, detail = 1) {
+  let pts = profile.map(([r, y]) => new THREE.Vector2(r, y));
+  if (detail > 1) pts = new THREE.SplineCurve(pts).getPoints((pts.length - 1) * Math.round(detail * 3));
+  const g = new THREE.LatheGeometry(pts, Math.round(seg * detail));
   const pos = g.attributes.position, v = new THREE.Vector3();
   const yTop = profile[0][1], yBot = profile[profile.length - 1][1];
   for (let i = 0; i < pos.count; i++) {
@@ -29,7 +31,8 @@ function latheCloak(profile, seg, folds, foldAmp, hemRag, seed) {
   return g;
 }
 
-export function buildPlayerModel(root, mats) {
+export function buildPlayerModel(root, mats, detail = 1) {
+  const n = k => Math.round(k * detail);              // segment counts scale with the detail level
   const add = (parent, mesh, x = 0, y = 0, z = 0) => { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh; };
   const group = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.order = 'YXZ'; parent.add(g); return g; };
   // its own copy of the cliff normal map (finer repeat); loaded separately so it uploads when its image arrives
@@ -44,16 +47,16 @@ export function buildPlayerModel(root, mats) {
   const body = group(tumbleOff, 0, RIG.hip, 0), off = group(body, 0, -RIG.hip, 0);
   const chest = group(off, 0, RIG.chest, 0), chestOff = group(chest, 0, -RIG.chest, 0);
 
-  const cloak = add(off, new THREE.Mesh(latheCloak([[0.12, 1.42], [0.22, 1.38], [0.3, 1.3], [0.31, 1.15], [0.3, 0.95], [0.33, 0.7], [0.39, 0.45], [0.45, 0.2], [0.48, 0.03]], 40, 9, 0.03, 0.09, 1.3), cloth));
-  const mantle = add(chestOff, new THREE.Mesh(latheCloak([[0.13, 1.5], [0.27, 1.42], [0.37, 1.3], [0.4, 1.13], [0.4, 0.98]], 40, 7, 0.02, 0.06, 4.1), clothDark));
+  const cloak = add(off, new THREE.Mesh(latheCloak([[0.12, 1.42], [0.22, 1.38], [0.3, 1.3], [0.31, 1.15], [0.3, 0.95], [0.33, 0.7], [0.39, 0.45], [0.45, 0.2], [0.48, 0.03]], 40, 9, 0.03, 0.09, 1.3, detail), cloth));
+  const mantle = add(chestOff, new THREE.Mesh(latheCloak([[0.13, 1.5], [0.27, 1.42], [0.37, 1.3], [0.4, 1.13], [0.4, 0.98]], 40, 7, 0.02, 0.06, 4.1, detail), clothDark));
   cloak.frustumCulled = mantle.frustumCulled = false;      // deformed on the CPU every frame
   const head = group(chestOff, 0, RIG.neck, 0), headOff = group(head, 0, -RIG.neck, 0);
-  const hood = add(headOff, new THREE.Mesh(new THREE.SphereGeometry(0.205, 20, 16), cloth));
+  const hood = add(headOff, new THREE.Mesh(new THREE.SphereGeometry(0.205, n(20), n(16)), cloth));
   hood.scale.set(1.0, 1.14, 1.16); hood.position.set(0, 1.56, -0.02);
-  const tip = add(headOff, new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, 12), cloth), 0, 1.6, -0.19); tip.rotation.x = -1.15;
+  const tip = add(headOff, new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.42, n(12), n(1)), cloth), 0, 1.6, -0.19); tip.rotation.x = -1.15;
   // the dark opening of the hood, so you can read which way the figure faces
-  const face = add(headOff, new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), mats.playerDark), 0, 1.52, 0.165); face.scale.set(0.9, 1.12, 0.45); face.castShadow = false;
-  const sash = add(off, new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.035, 8, 32), sashM), 0, 0.93, 0); sash.rotation.x = Math.PI / 2; sash.scale.set(1, 0.86, 1);
+  const face = add(headOff, new THREE.Mesh(new THREE.SphereGeometry(0.13, n(16), n(12)), mats.playerDark), 0, 1.52, 0.165); face.scale.set(0.9, 1.12, 0.45); face.castShadow = false;
+  const sash = add(off, new THREE.Mesh(new THREE.TorusGeometry(0.315, 0.035, n(8), n(32)), sashM), 0, 0.93, 0); sash.rotation.x = Math.PI / 2; sash.scale.set(1, 0.86, 1);
   // sash tail hangs from a hook so it can swing from its top edge
   const tail = group(off, -0.2, 0.93, -0.22);
   const tailM = add(tail, new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.55, 1, 4), sashM), 0, -0.27, 0); tailM.rotation.y = 0.6;
@@ -71,12 +74,12 @@ export function buildPlayerModel(root, mats) {
 
   const mkArm = (side) => {
     const sh = group(chestOff, -0.28 * side, 1.3, 0.04);
-    const up = add(sh, new THREE.Mesh(new THREE.CapsuleGeometry(0.074, 0.16, 4, 10), cloth), 0, 0, 0.12); up.rotation.x = Math.PI / 2;
+    const up = add(sh, new THREE.Mesh(new THREE.CapsuleGeometry(0.074, 0.16, n(4), n(10)), cloth), 0, 0, 0.12); up.rotation.x = Math.PI / 2;
     const el = group(sh, 0, 0, RIG.upper);
-    const fore = add(el, new THREE.Mesh(new THREE.CapsuleGeometry(0.066, 0.08, 4, 10), cloth), 0, 0, 0.04); fore.rotation.x = Math.PI / 2;
-    const gaunt = add(el, new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.1, 4, 10), iron), 0, 0, 0.15); gaunt.rotation.x = Math.PI / 2;
+    const fore = add(el, new THREE.Mesh(new THREE.CapsuleGeometry(0.066, 0.08, n(4), n(10)), cloth), 0, 0, 0.04); fore.rotation.x = Math.PI / 2;
+    const gaunt = add(el, new THREE.Mesh(new THREE.CapsuleGeometry(0.058, 0.1, n(4), n(10)), iron), 0, 0, 0.15); gaunt.rotation.x = Math.PI / 2;
     const hand = group(el, 0, 0, RIG.fore);
-    add(hand, new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), leather)).scale.set(1, 1.15, 1.2);
+    add(hand, new THREE.Mesh(new THREE.SphereGeometry(0.05, n(10), n(8)), leather)).scale.set(1, 1.15, 1.2);
     return { sh, el, hand };
   };
   const armR = mkArm(1), armL = mkArm(-1);
@@ -92,11 +95,11 @@ export function buildPlayerModel(root, mats) {
 
   // legs live under the root: the animator places them between the hips and the planted feet
   const legs = [1, -1].map(side => {        // side +1 = left (+x), -1 = right
-    const thigh = add(root, new THREE.Mesh(new THREE.CapsuleGeometry(0.068, RIG.thigh - 0.05, 4, 10), clothDark));
-    const shin = add(root, new THREE.Mesh(new THREE.CapsuleGeometry(0.056, RIG.shin - 0.05, 4, 10), clothDark));
+    const thigh = add(root, new THREE.Mesh(new THREE.CapsuleGeometry(0.068, RIG.thigh - 0.05, n(4), n(10)), clothDark));
+    const shin = add(root, new THREE.Mesh(new THREE.CapsuleGeometry(0.056, RIG.shin - 0.05, n(4), n(10)), clothDark));
     const boot = group(root);
-    add(boot, new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.13, 4, 10), leather), 0, -0.02, 0.05).rotation.x = Math.PI / 2;
-    add(boot, new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.064, 0.14, 10), leather), 0, 0.05, -0.01);   // cuff
+    add(boot, new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.13, n(4), n(10)), leather), 0, -0.02, 0.05).rotation.x = Math.PI / 2;
+    add(boot, new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.064, 0.14, n(10)), leather), 0, 0.05, -0.01);   // cuff
     return { side, thigh, shin, boot };
   });
 

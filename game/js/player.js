@@ -8,10 +8,10 @@ import { PlayerAnim } from './playeranim.js';
 const P = CFG.player;
 
 export class Player {
-  constructor(scene, mats) {
+  constructor(scene, mats, detail = 1) {
     this.mats = mats;
     this.root = new THREE.Group();
-    this.rig = buildPlayerModel(this.root, mats);
+    this.rig = buildPlayerModel(this.root, mats, detail);
     Object.assign(this, { sword: this.rig.sword, blade: this.rig.blade, flask: this.rig.flask });
     this.hitAway = new THREE.Vector3(0, 0, -1); this.hitKind = 'hit'; this.serial = 0;
     this.anim = new PlayerAnim(this, this.rig);

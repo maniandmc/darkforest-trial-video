@@ -317,6 +317,7 @@ export class PlayerAnim {
       case 'dead': track(DEAD, t / DEAD_LEN, o); break;
       default: Object.assign(o, GUARD);
     }
+    if (this.override) this.override(o, s, t, this);          // the trailer's directed poses (walks, lantern raise)
     return o;
   }
 
