@@ -109,8 +109,11 @@ export class FX {
 
   setScale(px) { this.parts.mat.uniforms.uScale.value = px; }
 
+  // how many of the pooled flash lights exist in the scene (each costs every lit pixel a light evaluation)
+  setLightBudget(n) { this.lightBudget = n; this.lights.forEach((s, i) => { s.l.visible = i < n; if (i >= n) s.l.intensity = 0; }); }
+
   flashLight(pos, color, peak, dur) {
-    const s = this.lights.reduce((a, b) => (a.l.intensity < b.l.intensity ? a : b));
+    const s = this.lights.slice(0, this.lightBudget || this.lights.length).reduce((a, b) => (a.l.intensity < b.l.intensity ? a : b));
     s.l.position.copy(pos); s.l.color.set(color); s.peak = peak; s.t = 0; s.dur = dur;
   }
 

@@ -32,7 +32,8 @@ function latheCloak(profile, seg, folds, foldAmp, hemRag, seed) {
 export function buildPlayerModel(root, mats) {
   const add = (parent, mesh, x = 0, y = 0, z = 0) => { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh); return mesh; };
   const group = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.order = 'YXZ'; parent.add(g); return g; };
-  const nor = mats.T.cliffN.clone(); nor.repeat.set(6, 6); nor.needsUpdate = true;
+  // its own copy of the cliff normal map (finer repeat); loaded separately so it uploads when its image arrives
+  const nor = new THREE.TextureLoader().load('assets/tex/cliff_nor.jpg'); nor.wrapS = nor.wrapT = THREE.RepeatWrapping; nor.repeat.set(6, 6);
   const cloth = new THREE.MeshStandardMaterial({ color: 0x24211f, roughness: 0.93, normalMap: nor, normalScale: new THREE.Vector2(0.6, 0.6), side: THREE.DoubleSide });
   const clothDark = new THREE.MeshStandardMaterial({ color: 0x141211, roughness: 0.95, normalMap: nor, normalScale: new THREE.Vector2(0.5, 0.5), side: THREE.DoubleSide });
   const sashM = new THREE.MeshStandardMaterial({ color: 0x5a1209, roughness: 0.85, side: THREE.DoubleSide });

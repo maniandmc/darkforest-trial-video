@@ -24,6 +24,20 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | Q (or middle click / Tab) | lock on |
 | Esc | pause (restart, quality, title) · O cycles quality in-fight |
 
+**Phones and tablets** (detected automatically; `?touch` forces it) — hold the phone in landscape:
+
+| | |
+|---|---|
+| Left side of the screen | floating stick: drag to move, push past its rim to sprint |
+| Right side of the screen | drag to turn the camera (when not locked on) |
+| Buttons, bottom right | attack · heavy · roll · flask (with the count) · lock-on (on by default) |
+| Top right | pause |
+
+Quality on touch screens is a choice between **PC 원본** (the PC High preset, untouched) and **모바일 저사양**:
+CSS-pixel resolution that drops by itself (down to 55 %) while frames run long, no bloom or shadows, the rock shader
+without normal maps and macro layer, one flash light. On an emulated phone screen (844×390, DPR 3) it costs about a
+sixth of PC 원본 per frame in software rendering — real-device frame rates still need measuring on the device.
+
 ## The fight
 - **Phase 1 (100–60 %)** — overhead slam (+ shock ring), sweeping backhand, charge, stomp (punishes standing underneath).
 - **Phase 2 (60–25 %)** — opens with a roar that throws you back; adds the lava call (pools telegraphed for ~1.2 s,
@@ -48,7 +62,9 @@ python3 -m http.server 8000      # then open http://localhost:8000
 - `js/fx.js`, `js/post.js` — GPU particles, ground rings, lava/nova decals, blade trail; HDR + MSAA, bloom, grade.
 - `js/audio.js` — every sound is synthesised with Web Audio (no samples), including the 135 BPM combat drums that
   intensify by phase; the same recipes render offline for recorded footage.
-- Quality presets (High / Medium / Low) scale resolution, shadows, bloom and particles; the choice is remembered.
+- Quality presets (High / Medium / Low, Mobile) scale resolution, shadows, bloom and particles; the choice is remembered.
+- `js/touch.js`, `touch.css` — touch controls (they feed the same per-frame action snapshot as keyboard and mouse),
+  the HUD laid out around the thumbs, compact menus for short screens, a rotate-to-landscape prompt.
 
 ## Testing (headless Chromium via Playwright)
 - `tools/balance.js [runs] [skills]` — whole fights played by a bot that reacts to wind-ups with a human-like delay and
@@ -56,6 +72,8 @@ python3 -m http.server 8000      # then open http://localhost:8000
   (The animated swings connect more often than the old rigid ones, so light-chain damage was rebalanced per step to keep
   the fight as hard as before.)
 - `tools/capture.js`, `tools/ui_shots.js`, `tools/beauty.js` — labelled screenshots of attacks, menus, look-dev.
+- `tools/touch_test.js` — the touch controls on an emulated phone: stick, sprint, two-finger attack, every button,
+  camera drag, pause and quality switch, portrait prompt (15 checks + screenshots).
 - `tools/poses.js` (key-pose sheets, clay-shaded, three views) and `tools/motion.js` + `tools/motion_sheet.py` (the
   wanderer's whole move list filmed close up → contact sheets / video) — for working on the animation.
 - `tools/record.js` + `tools/cut.py` — deterministic bot replay rendered to a highlight video with offline audio.

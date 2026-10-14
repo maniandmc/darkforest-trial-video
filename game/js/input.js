@@ -1,4 +1,5 @@
-// Keyboard + mouse (pointer lock) → a per-frame action snapshot. A test bot can write the same snapshot.
+// Keyboard + mouse (pointer lock) → a per-frame action snapshot. A test bot can write the same snapshot, and on touch
+// screens TouchControls adds its stick, drag and buttons to it.
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
@@ -10,6 +11,8 @@ export class Input {
     this.free = false;             // pointer lock refused (embedded frames): read the mouse without capturing it
     this.virtual = null;           // when set (bot / tests) it replaces live input
     this.enabled = true;
+    this.touch = null;             // TouchControls, when the device has a touch screen
+    this.lastTouch = -1e9;         // browsers replay taps as mouse events: ignore those
 
     addEventListener('keydown', e => {
       if (e.repeat) return;
@@ -18,14 +21,16 @@ export class Input {
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
+    addEventListener('touchstart', () => { this.lastTouch = performance.now(); }, { passive: true, capture: true });
+    const fromTouch = () => performance.now() - this.lastTouch < 1000;
     canvas.addEventListener('mousedown', e => {
-      if (!this.locked && !this.free) return;
+      if ((!this.locked && !this.free) || fromTouch()) return;
       this.pressed.add('Mouse' + e.button); this.keys.add('Mouse' + e.button);
     });
     addEventListener('mouseup', e => this.keys.delete('Mouse' + e.button));
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mousemove', e => {
-      if (!this.locked && !this.free) return;
+      if ((!this.locked && !this.free) || fromTouch()) return;
       this.mouseDX += e.movementX; this.mouseDY += e.movementY;
     });
     document.addEventListener('pointerlockchange', () => {
@@ -35,7 +40,7 @@ export class Input {
   }
 
   requestLock() {
-    if (this.virtual || this.locked) return;
+    if (this.virtual || this.locked || this.touch) return;
     if (!this.canvas.requestPointerLock) { this.free = true; return; }
     try {
       const p = this.canvas.requestPointerLock();
@@ -68,6 +73,7 @@ export class Input {
       retry: p('KeyR') || p('Enter') || p('Space'),
       quality: p('KeyO'),
     };
+    if (this.touch) this.touch.merge(s);
     if (!this.enabled) { s.moveX = s.moveY = 0; s.light = s.heavy = s.roll = s.heal = s.sprint = false; }
     return s;
   }

@@ -1,0 +1,85 @@
+/* Touch screens (body.touch): on-screen controls, a HUD laid out around the thumbs, compact menus, rotate prompt. */
+html, body { touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+@supports (height: 100dvh) { #game { height: 100dvh; } }
+
+#touch { position: fixed; inset: 0; z-index: 4; display: none; --k: 1;
+  --r: max(18px, env(safe-area-inset-right)); --b: max(14px, env(safe-area-inset-bottom)); --l: max(16px, env(safe-area-inset-left)); }
+#touch.on { display: block; }
+#t-zone { position: absolute; inset: 0; touch-action: none; }
+
+/* floating stick: rests faded bottom-left as a hint, jumps under the thumb wherever the left side is touched */
+#t-stick { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; opacity: .3; transition: opacity .15s;
+  transform: translate(calc(var(--l) + 96px), calc(100vh - var(--b) - 86px)); }
+@supports (height: 100dvh) { #t-stick { transform: translate(calc(var(--l) + 96px), calc(100dvh - var(--b) - 86px)); } }
+#t-stick.active { opacity: 1; transition: none; }
+#t-stick .t-ring { position: absolute; left: -56px; top: -56px; width: 112px; height: 112px; border-radius: 50%;
+  border: 2px solid rgba(217, 183, 122, .55); background: radial-gradient(circle, rgba(20, 10, 6, .1), rgba(20, 10, 6, .45)); box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
+#t-stick .t-knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgba(255, 214, 150, .6), rgba(120, 60, 20, .6)); border: 1.5px solid rgba(255, 220, 170, .75); }
+#t-stick.sprint .t-ring { border-color: #ffb050; box-shadow: 0 0 20px rgba(255, 140, 40, .75); }
+#t-stick.sprint .t-knob { background: radial-gradient(circle at 40% 35%, rgba(255, 230, 170, .9), rgba(220, 110, 30, .8)); }
+
+/* action buttons: a thumb cluster around the attack button */
+.tbtn { position: absolute; width: calc(var(--s) * var(--k)); height: calc(var(--s) * var(--k)); border-radius: 50%; padding: 0; margin: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  color: #ecd3a2; background: radial-gradient(circle at 50% 40%, rgba(44, 22, 12, .5), rgba(8, 4, 3, .62));
+  border: 1.5px solid rgba(217, 183, 122, .55); box-shadow: 0 0 0 1px rgba(0, 0, 0, .5), inset 0 0 12px rgba(0, 0, 0, .6);
+  touch-action: none; font-family: system-ui, -apple-system, sans-serif; transition: transform .06s, opacity .2s; }
+.tbtn svg { width: 46%; height: 46%; pointer-events: none; }
+.tbtn i { font-style: normal; font-size: 10px; color: #cdb48a; line-height: 1; pointer-events: none; }
+.tbtn.down { transform: scale(.9); background: rgba(150, 60, 15, .62); border-color: #ffc070; box-shadow: 0 0 16px rgba(255, 140, 40, .6); }
+.tbtn.tired { opacity: .45; }
+.tbtn.empty { opacity: .3; }
+.tbtn.sel { border-color: #ffb050; color: #ffd28a; box-shadow: 0 0 14px rgba(255, 140, 40, .55); }
+.t-light { --s: 84px; right: var(--r); bottom: var(--b); }
+.t-light svg { width: 50%; height: 50%; }
+.t-roll { --s: 64px; right: calc(var(--r) + 96px * var(--k)); bottom: calc(var(--b) + 4px * var(--k)); }
+.t-heavy { --s: 64px; right: calc(var(--r) + 4px * var(--k)); bottom: calc(var(--b) + 96px * var(--k)); }
+.t-heal { --s: 56px; right: calc(var(--r) + 84px * var(--k)); bottom: calc(var(--b) + 82px * var(--k)); }
+.t-heal b { position: absolute; right: -2px; top: -2px; min-width: 19px; height: 19px; border-radius: 10px; background: #8e2410; color: #ffe2b0;
+  font: 600 12px/19px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); }
+.t-lock { --s: 46px; right: calc(var(--r) + 176px * var(--k)); bottom: calc(var(--b) + 70px * var(--k)); }
+.t-pause { --s: 40px; right: var(--r); top: max(10px, env(safe-area-inset-top)); }
+.t-pause svg { width: 40%; height: 40%; }
+@media (min-height: 640px) and (min-width: 900px) { #touch { --k: 1.2; } }     /* tablets */
+
+/* HUD around the thumbs: player bars top-left, boss bar along the top, flasks shown on the heal button */
+body.touch #pbars { left: max(16px, env(safe-area-inset-left)); top: max(10px, env(safe-area-inset-top)); width: min(280px, 30vw); gap: 5px; }
+body.touch #flasks { display: none; }
+body.touch #bossbar { top: max(10px, env(safe-area-inset-top)); bottom: auto; transform: none; width: auto;
+  left: calc(max(16px, env(safe-area-inset-left)) + min(280px, 30vw) + 28px); right: calc(max(18px, env(safe-area-inset-right)) + 56px); }
+body.touch .boss-head { margin-bottom: 4px; gap: 8px; }
+body.touch #boss-name { font-size: 14px; }
+body.touch #boss-title, body.touch #boss-dmg { font-size: 13px; }
+body.touch .bar.boss { height: 7px; }
+@media (max-width: 720px) { body.touch #boss-title { display: none; } }
+body.touch .prompt { display: none; }
+body.touch #skip { right: auto; left: 50%; transform: translateX(-50%); bottom: max(14px, env(safe-area-inset-bottom)); font-family: system-ui, sans-serif; letter-spacing: .05em; }
+body.touch .qrow button { padding: 8px 14px; font-size: 13px; letter-spacing: .04em; font-family: system-ui, -apple-system, sans-serif; }
+body.touch .controls.touch-help { grid-template-columns: repeat(3, auto); font-size: 12px; gap: 6px 18px; }
+body.touch .controls.touch-help b { font-family: system-ui, sans-serif; }
+body.touch #touchnote { display: none !important; }
+
+/* short landscape screens (phones): compact menus */
+@media (max-height: 540px) {
+  #title { padding-top: 5vh; }
+  .logo { font-size: clamp(32px, 7vw, 64px); }
+  .tagline { margin-bottom: 6px; font-size: 15px; }
+  .screen { gap: 8px; }
+  .mbtn { padding: 8px 20px; min-width: 200px; font-size: 14px; }
+  .big-btn { font-size: 16px; padding: 11px 30px; }
+  .controls { position: static; margin-top: 6px; }
+  .big { font-size: clamp(22px, 4vw, 40px); }
+  .sub { font-size: 16px; }
+  .stats { font-size: 15px; margin: 0 0 6px; }
+  .cname { font-size: clamp(36px, 7vw, 64px); }
+  #namecard { bottom: 12vh; }
+}
+
+/* portrait phones: ask for landscape (the fight pauses until then) */
+#rotate { display: none; position: fixed; inset: 0; z-index: 50; background: #050302; color: #e8d2a6; font: 17px system-ui, -apple-system, sans-serif;
+  flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; }
+#rotate .rot-ico { width: 72px; height: 72px; color: #d9b77a; animation: rot 2.4s ease-in-out infinite; }
+#rotate .rot-ico svg { width: 100%; height: 100%; }
+@keyframes rot { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { body.touch #rotate { display: flex; } }

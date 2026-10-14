@@ -1,6 +1,7 @@
 // Materials. Rock surfaces use a patched MeshStandardMaterial: photo-scanned albedo + normal maps projected
 // triplanar in each mesh's own (scaled) object space — so textures stick to moving limbs — plus a second macro scale
 // against tiling, and optional 3D-voronoi plate seams carrying live magma (the trailer's basalt-armour look).
+// LITE (phone preset) drops the normal map and the macro layer: 3 texture reads per pixel instead of 9.
 import * as THREE from 'three';
 
 const shared = { uTime: { value: 0 } };
@@ -60,8 +61,10 @@ function patchRock(mat, U, defines) {
       .replace('#include <map_fragment>', `
         vec3 nO_ = normalize(vObjN); vec3 tw_ = triW(nO_);
         vec3 alb_ = triAlb(tDiff, vObjPos, tw_, uScale);
+        #ifndef LITE
         vec3 albM_ = triAlb(tDiff, vObjPos + vec3(13.7, 5.1, 9.3), tw_, uScale * 0.21);
         alb_ *= 0.55 + 0.9 * dot(albM_, vec3(0.2126, 0.7152, 0.0722));
+        #endif
         float seam_ = 1.0, plId_ = 0.0, edge_ = 1.0;
         #ifdef SEAMS
           vec3 pp_ = vObjPos * uCell + uSeed + 0.45 * vec3(n3(vObjPos * 0.4), n3(vObjPos * 0.4 + 7.1), n3(vObjPos * 0.4 + 3.3));
@@ -74,9 +77,11 @@ function patchRock(mat, U, defines) {
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = clamp(roughnessFactor * (0.75 + 0.5 * dot(alb_, vec3(0.33))) , 0.15, 1.0);`)
       .replace('#include <normal_fragment_maps>', `
+        #ifndef LITE
         { vec3 np_ = triNor(tNor, vObjPos, nO_, uScale, uNormalK);
           vec3 nw_ = normalize(mat3(vR0, vR1, vR2) * np_);
-          normal = normalize((viewMatrix * vec4(nw_, 0.0)).xyz); }`)
+          normal = normalize((viewMatrix * vec4(nw_, 0.0)).xyz); }
+        #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         #ifdef SEAMS
         { float live_ = smoothstep(uLive, uLive + 0.18, n3(vObjPos * 0.33 + vec3(0.0, -uTime * 0.06, 0.0) + uSeed));
@@ -84,7 +89,7 @@ function patchRock(mat, U, defines) {
           totalEmissiveRadiance += uLavaColor * (pow(1.0 - seam_, 2.0) * 2.0 + (1.0 - edge_) * 0.1) * hot_; }
         #endif`);
   };
-  mat.customProgramCacheKey = () => 'rock:' + JSON.stringify(defines);
+  mat.customProgramCacheKey = () => 'rock:' + JSON.stringify(mat.defines);      // LITE is toggled per quality
   return mat;
 }
 

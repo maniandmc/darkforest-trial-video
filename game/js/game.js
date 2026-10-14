@@ -13,6 +13,7 @@ import { HUD } from './hud.js';
 import { FX } from './fx.js';
 import { Sound } from './audio.js';
 import { Post } from './post.js';
+import { TouchControls } from './touch.js';
 import { matTime } from './materials.js';
 import { seed, rand, randRange, clamp, lerp, ease } from './math.js';
 
@@ -20,7 +21,12 @@ export const QUALITY = {
   high: { label: 'High', pr: 1.0, shadow: 2048, bloom: true, particles: 1.0 },
   medium: { label: 'Medium', pr: 0.8, shadow: 1024, bloom: true, particles: 0.6 },
   low: { label: 'Low', pr: 0.6, shadow: 0, bloom: false, particles: 0.35 },
+  // phones: CSS-pixel resolution that drops further while frames run long, no post-processing or shadows, a lighter
+  // rock shader, one flash light
+  mobile: { label: 'Mobile', pr: 1.0, maxDpr: 1, shadow: 0, bloom: false, particles: 0.35, lite: true, flashLights: 1, dynRes: true },
 };
+// what the quality row offers: the PC presets, or on touch screens the PC original against the phone preset
+const QUALITY_MENU = { pc: [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']], touch: [['high', 'PC 원본'], ['mobile', '모바일 저사양']] };
 const INTRO_LEN = 5.0;
 const $ = id => document.getElementById(id);
 
@@ -30,7 +36,8 @@ export class Game {
     this.canvas = canvas;
     let q = opts.quality;
     try { q = q || localStorage.getItem('dite.quality'); } catch (e) { /* storage unavailable */ }
-    this.qualityName = QUALITY[q] ? q : 'high';
+    this.qualityName = QUALITY[q] ? q : opts.touch ? 'mobile' : 'high';
+    this.dynScale = 1;
     this.quality = { ...QUALITY[this.qualityName] };
     const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.test });
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
@@ -66,17 +73,25 @@ export class Game {
   // ------------------------------------------------------------------------------------- quality
   setQuality(name) {
     if (!QUALITY[name]) return;
-    this.qualityName = name; Object.assign(this.quality, QUALITY[name]);
+    this.qualityName = name;
+    for (const k in this.quality) delete this.quality[k];          // FX keeps a reference to this object
+    Object.assign(this.quality, QUALITY[name]);
+    this.dynScale = 1;
     try { localStorage.setItem('dite.quality', name); } catch (e) { /* ignore */ }
     this.applyQuality(); this.resize();
   }
   applyQuality() {
     const q = this.quality, r = this.renderer;
-    r.setPixelRatio(Math.min(devicePixelRatio || 1, 2) * q.pr);
+    r.setPixelRatio(Math.min(devicePixelRatio || 1, q.maxDpr ?? 2) * q.pr * (q.dynRes ? this.dynScale : 1));
     r.shadowMap.enabled = q.shadow > 0;
     const moon = this.arena.moon;
     moon.castShadow = q.shadow > 0;
     if (q.shadow > 0 && moon.shadow.mapSize.x !== q.shadow) { moon.shadow.mapSize.set(q.shadow, q.shadow); moon.shadow.map?.dispose(); moon.shadow.map = null; }
+    // phone preset: rock without normal maps or the macro albedo layer, cheaper texture filtering, one flash light
+    for (const m of Object.values(this.mats)) if (m?.userData?.U) { if (q.lite) m.defines.LITE = 1; else delete m.defines.LITE; }
+    const aniso = q.lite ? 2 : Math.min(8, r.capabilities.getMaxAnisotropy());
+    for (const t of Object.values(this.mats.T)) if (t.anisotropy !== aniso) { t.anisotropy = aniso; if (t.image) t.needsUpdate = true; }   // unloaded: applied on load
+    this.fx.setLightBudget(q.flashLights ?? 3);
     this.scene.traverse(o => { if (o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; });
     this.post?.setEnabled(q.bloom);
     for (const b of document.querySelectorAll('[data-q]')) b.classList.toggle('sel', b.dataset.q === this.qualityName);
@@ -101,6 +116,7 @@ export class Game {
     });
     E.on('player-hurt', info => {
       S.play('hurt', { kd: info.kd });
+      if (this.touch) try { navigator.vibrate?.(info.kd ? 120 : 45); } catch (e) { /* no haptics */ }
       this.hud.flash('150,10,0', 0.35);
       fx.dust(this.player.pos, 1.5, 10);
       this.stats.dmgTaken += info.dmg;
@@ -196,6 +212,38 @@ export class Game {
     this.events.emit('player-hurt', info);
   }
 
+  qualityMenu(kind) {
+    this.qMenu = kind;
+    for (const row of document.querySelectorAll('.qrow')) {
+      for (const b of row.querySelectorAll('button')) b.remove();
+      for (const [k, label] of QUALITY_MENU[kind]) { const b = document.createElement('button'); b.dataset.q = k; b.textContent = label; row.appendChild(b); }
+    }
+    for (const b of document.querySelectorAll('[data-q]')) b.classList.toggle('sel', b.dataset.q === this.qualityName);
+  }
+
+  // touch screen detected: on-screen controls, lock-on by default, the PC / phone quality choice
+  enableTouch() {
+    if (this.touch) return;
+    this.touch = new TouchControls(this);
+    this.input.touch = this.touch;
+    this.opts.lockDefault = true;
+    this.qualityMenu('touch');
+  }
+
+  // phone preset: lower the render resolution while frames run long, raise it back when there is headroom
+  adaptResolution(frameMs) {
+    if (!this.quality.dynRes || this.state !== 'fight') { this._ft = 0; return; }
+    this._ft = this._ft ? this._ft * 0.94 + Math.min(frameMs, 100) * 0.06 : frameMs;
+    this._adaptT = (this._adaptT || 0) + frameMs / 1000;
+    if (this._adaptT < 1.2) return;
+    const s = this.dynScale;
+    if (this._ft > 21) this.dynScale = Math.max(0.55, s - 0.1);            // under ~48 fps
+    else if (this._ft < 17.6 && this._adaptT > 3) this.dynScale = Math.min(1, s + 0.05);   // a steady 60
+    else return;
+    this._adaptT = 0;
+    if (this.dynScale !== s) { this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.quality.maxDpr ?? 2) * this.quality.pr * this.dynScale); this.resize(); }
+  }
+
   resize() {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
@@ -215,7 +263,12 @@ export class Game {
     click('btn-retry2', () => this.startFight());
     click('btn-title2', () => this.toTitle());
     click('btn-title3', () => this.toTitle());
-    for (const b of document.querySelectorAll('[data-q]')) b.addEventListener('click', e => { e.stopPropagation(); this.setQuality(b.dataset.q); this.sound.play('ui'); });
+    for (const row of document.querySelectorAll('.qrow')) row.addEventListener('click', e => {
+      const b = e.target.closest('[data-q]'); if (!b) return;
+      e.stopPropagation(); this.setQuality(b.dataset.q); this.sound.play('ui');
+    });
+    this.qualityMenu('pc');
+    document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'fight' && !this.opts.test) this.pause(); });
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.state === 'fight' && !this.opts.test && !this._resuming && !this.pendingEnd) this.pause();
     });
@@ -298,6 +351,7 @@ export class Game {
       case 'paused': if (inp.pause) this.resume(); break;
     }
     if (this.opts.record) this.fadeUI(dt);
+    this.touch?.update(this);
     this.input.endFrame();
   }
 
@@ -380,7 +434,7 @@ export class Game {
     const playing = this.state === 'fight';
     if (playing && inp.pause) { this.pause(); return; }
     if (playing && inp.lock && this.boss.alive) this.locked = !this.locked;
-    if (playing && inp.quality) { const ks = Object.keys(QUALITY); this.setQuality(ks[(ks.indexOf(this.qualityName) + 1) % ks.length]); }
+    if (playing && inp.quality) { const ks = QUALITY_MENU[this.qMenu || 'pc'].map(m => m[0]); this.setQuality(ks[(ks.indexOf(this.qualityName) + 1) % ks.length]); }
     let sdt = dt;
     if (this.freeze > 0) { this.freeze -= dt; sdt = 0; }
     if (this.slowmo > 0) { this.slowmo -= dt; sdt *= 0.3; }
